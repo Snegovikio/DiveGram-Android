@@ -1,0 +1,18 @@
+Third-party notices for DiveGram
+================================
+
+This project is licensed under GNU GPL v. 2 or later (see LICENSE).
+
+The project is based on the official Telegram clients (Telegram-Android and
+Telegram-iOS), which are licensed under GPL v. 2 or later. Their license text
+is in the LICENSE file. Submodules listed in .gitmodules keep their own
+licenses; see third_party/ for details.
+
+Not bundled
+-----------
+
+The following projects were evaluated and are NOT included in the source
+distribution, so their licenses do not apply here:
+
+    libv2ray.aar (v2rayNG)     GPL-3.0    rejected: incompatible license
+    sing-box (libbox.aar)      GPL-3.0    rejected: incompatible license

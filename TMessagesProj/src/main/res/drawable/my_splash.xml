@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="utf-8"?>
+<animated-vector
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt">
+    <aapt:attr name="android:drawable">
+        <vector
+            android:name="splash"
+            android:width="512dp"
+            android:height="512dp"
+            android:viewportWidth="512"
+            android:viewportHeight="512">
+            <group
+                android:name="circle_grp"
+                android:pivotX="256"
+                android:pivotY="512"
+                android:scaleX="1"
+                android:scaleY="1">
+                <path
+                    android:name="circle"
+                    android:pathData="M256,0 C397.5,0 512,114.5 512,256 C512,397.5 397.5,512 256,512 C114.5,512 0,397.5 0,256 C0,114.5 114.5,0 256,0 Z"
+                    android:fillColor="#7C3AED"
+                    android:fillAlpha="1"
+                    android:strokeWidth="1"/>
+            </group>
+            <group
+                android:name="plane_grp"
+                android:pivotX="256"
+                android:pivotY="256"
+                android:translateX="0"
+                android:translateY="0"
+                android:scaleX="1"
+                android:scaleY="1">
+                <path
+                    android:name="plane"
+                    android:pathData="M249.500 165.400 C247.900 166.100 245.800 167.600 244.900 168.600 C244.000 169.700 229.000 195.900 211.500 227.000 C194.000 258.100 174.800 292.200 168.700 302.900 C159.000 319.900 157.600 322.900 157.600 327.100 C157.500 332.200 159.400 335.700 164.400 339.400 C167.000 341.400 168.400 341.500 196.800 341.500 C237.200 341.500 236.100 342.300 238.600 314.400 C239.400 305.100 240.600 296.300 241.100 294.800 C243.000 289.900 246.500 287.700 252.800 287.200 C257.900 286.800 259.000 287.100 261.700 289.400 C266.000 293.000 266.700 295.900 268.000 315.000 C269.300 333.200 270.400 336.500 276.300 339.800 C279.100 341.300 283.100 341.500 311.700 341.500 C342.600 341.500 344.000 341.400 346.600 339.400 C351.500 335.800 353.400 332.400 353.400 327.300 C353.300 322.900 350.100 316.700 310.500 246.500 C287.000 204.700 267.000 169.700 266.100 168.600 C262.500 164.400 255.100 162.900 249.500 165.400 Z"
+                    android:fillColor="#FFFFFF"
+                    android:fillAlpha="1"
+                    android:strokeWidth="1"/>
+            </group>
+        </vector>
+    </aapt:attr>
+    <target android:name="circle_grp">
+        <aapt:attr name="android:animation">
+            <set>
+                <objectAnimator
+                    android:propertyName="scaleX"
+                    android:startOffset="0"
+                    android:duration="450"
+                    android:valueFrom="0.5"
+                    android:valueTo="1"
+                    android:valueType="floatType"
+                    android:interpolator="@android:anim/overshoot_interpolator"/>
+                <objectAnimator
+                    android:propertyName="scaleY"
+                    android:startOffset="0"
+                    android:duration="450"
+                    android:valueFrom="0.5"
+                    android:valueTo="1"
+                    android:valueType="floatType"
+                    android:interpolator="@android:anim/overshoot_interpolator"/>
+            </set>
+        </aapt:attr>
+    </target>
+    <target android:name="circle">
+        <aapt:attr name="android:animation">
+            <objectAnimator
+                android:propertyName="fillAlpha"
+                android:startOffset="0"
+                android:duration="200"
+                android:valueFrom="0"
+                android:valueTo="1"
+                android:valueType="floatType"
+                android:interpolator="@android:interpolator/fast_out_slow_in"/>
+        </aapt:attr>
+    </target>
+    <target android:name="plane_grp">
+        <aapt:attr name="android:animation">
+            <set>
+                <objectAnimator
+                    android:propertyName="translateX"
+                    android:startOffset="150"
+                    android:duration="300"
+                    android:valueFrom="0"
+                    android:valueTo="0"
+                    android:valueType="floatType"
+                    android:interpolator="@android:interpolator/linear_out_slow_in"/>
+                <objectAnimator
+                    android:propertyName="translateY"
+                    android:startOffset="150"
+                    android:duration="300"
+                    android:valueFrom="90"
+                    android:valueTo="0"
+                    android:valueType="floatType"
+                    android:interpolator="@android:interpolator/linear_out_slow_in"/>
+                <objectAnimator
+                    android:propertyName="scaleX"
+                    android:startOffset="150"
+                    android:duration="300"
+                    android:valueFrom="0.8"
+                    android:valueTo="1"
+                    android:valueType="floatType"
+                    android:interpolator="@android:anim/overshoot_interpolator"/>
+                <objectAnimator
+                    android:propertyName="scaleY"
+                    android:startOffset="150"
+                    android:duration="300"
+                    android:valueFrom="0.8"
+                    android:valueTo="1"
+                    android:valueType="floatType"
+                    android:interpolator="@android:anim/overshoot_interpolator"/>
+            </set>
+        </aapt:attr>
+    </target>
+    <target android:name="plane">
+        <aapt:attr name="android:animation">
+            <objectAnimator
+                android:propertyName="fillAlpha"
+                android:startOffset="150"
+                android:duration="160"
+                android:valueFrom="0"
+                android:valueTo="1"
+                android:valueType="floatType"
+                android:interpolator="@android:interpolator/fast_out_slow_in"/>
+        </aapt:attr>
+    </target>
+</animated-vector>

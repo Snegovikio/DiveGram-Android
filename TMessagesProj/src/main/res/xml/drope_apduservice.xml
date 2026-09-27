@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<host-apdu-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/DropeBringTogether"
+    android:requireDeviceUnlock="false">
+    <aid-group
+        android:description="@string/UsernameDrope"
+        android:category="other">
+        <aid-filter android:name="F00144726F7065"/>
+    </aid-group>
+</host-apdu-service>
