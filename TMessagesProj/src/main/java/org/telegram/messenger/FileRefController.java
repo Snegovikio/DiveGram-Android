@@ -554,6 +554,7 @@ public class FileRefController extends BaseController {
         } else if (parentObject instanceof MessageObject) {
             MessageObject messageObject = (MessageObject) parentObject;
             long channelId = messageObject.getChannelId();
+            TLRPC.InputPeer richMessagePeer = getMessagesController().getInputPeer(messageObject.getDialogId());
             if (messageObject.scheduled) {
                 TLRPC.TL_messages_getScheduledMessages req = new TLRPC.TL_messages_getScheduledMessages();
                 req.peer = getMessagesController().getInputPeer(messageObject.getDialogId());
@@ -564,6 +565,11 @@ public class FileRefController extends BaseController {
                 req.shortcut_id = messageObject.getQuickReplyId();
                 req.flags |= 1;
                 req.id.add(messageObject.getRealId());
+                getConnectionsManager().sendRequest(req, (response, error) -> onRequestComplete(locationKey, parentKey, response, error, true, false));
+            } else if (messageObject.messageOwner != null && messageObject.messageOwner.rich_message != null && richMessagePeer != null) {
+                TL_iv.getRichMessage req = new TL_iv.getRichMessage();
+                req.peer = richMessagePeer;
+                req.id = messageObject.getRealId();
                 getConnectionsManager().sendRequest(req, (response, error) -> onRequestComplete(locationKey, parentKey, response, error, true, false));
             } else if (channelId != 0) {
                 TLRPC.TL_channels_getMessages req = new TLRPC.TL_channels_getMessages();
@@ -1532,6 +1538,8 @@ public class FileRefController extends BaseController {
                                 break;
                             }
                         }
+                    } else if (message.rich_message != null) {
+                        result = getFileReferenceForRichMessage(message.rich_message, location, needReplacement, locationReplacement);
                     } else if (message.media instanceof TLRPC.TL_messageMediaPoll) {
                         result = getFileReferenceForPoll((TLRPC.TL_messageMediaPoll) message.media, location, needReplacement, locationReplacement);
                     } else if (message.media != null) {

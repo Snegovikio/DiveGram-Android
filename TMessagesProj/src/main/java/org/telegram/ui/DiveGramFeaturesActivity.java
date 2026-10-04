@@ -114,7 +114,6 @@ public class DiveGramFeaturesActivity extends BaseFragment {
                 rows.add(new Row(TYPE_SLIDER, "music_blur", null));
                 rows.add(new Row(TYPE_CHECK, "player_lyrics", null));
                 rows.add(new Row(TYPE_CHECK, "player_lyrics_controls", null));
-                rows.add(new Row(TYPE_BUTTON, "lyrics_editor", null));
                 rows.add(new Row(TYPE_CHECK, "hide_all_chats", null));
                 rows.add(new Row(TYPE_CHECK, "hide_contacts", null));
                 rows.add(new Row(TYPE_CHECK, "circle_camera", null));
@@ -254,14 +253,6 @@ public class DiveGramFeaturesActivity extends BaseFragment {
                 }
             }
             switch (row.id) {
-                case "lyrics_editor":
-                    try {
-                        android.content.Intent intent = new android.content.Intent(getParentActivity(), org.telegram.ui.Components.LyricsAlbumEditorActivity.class);
-                        getParentActivity().startActivity(intent);
-                    } catch (Exception e) {
-                        org.telegram.messenger.FileLog.e(e);
-                    }
-                    break;
                 case "auto_reply":
                     presentFragment(new AutoReplyActivity());
                     break;
@@ -327,6 +318,32 @@ public class DiveGramFeaturesActivity extends BaseFragment {
                         Toast.makeText(getParentActivity() != null ? getParentActivity() : getContext(), "Сохранённые удалённые сообщения убраны из чатов", Toast.LENGTH_SHORT).show();
                     }
                     updateRow("deleted_opacity");
+                    updateRow("purge_deleted");
+                    break;
+                }
+                case "purge_deleted": {
+                    int count = SharedConfig.getDeletedMessageKeysCopy().size();
+                    if (getParentActivity() == null) {
+                        break;
+                    }
+                    if (count == 0) {
+                        Toast.makeText(getParentActivity(), "Сохранённых удалённых сообщений нет", Toast.LENGTH_SHORT).show();
+                        break;
+                    }
+                    AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity());
+                    builder.setTitle("Удалить сохранённые удалённые?");
+                    builder.setMessage("Будет убрано " + count + " сохранённых удалённых сообщений. Их больше нельзя будет процитировать в ответе. Сами сообщения в Telegram при этом не изменятся.");
+                    builder.setPositiveButton("Удалить", (dialog, which) -> {
+                        MessagesController.getInstance(getCurrentAccount()).purgeSavedDeletedMessages();
+                        NotificationCenter.getInstance(getCurrentAccount()).postNotificationName(NotificationCenter.updateInterfaces, MessagesController.UPDATE_MASK_ALL);
+                        updateRow("purge_deleted");
+                        updateRow("deleted_opacity");
+                        if (getParentActivity() != null) {
+                            Toast.makeText(getParentActivity(), "Сохранённые удалённые убраны", Toast.LENGTH_SHORT).show();
+                        }
+                    });
+                    builder.setNegativeButton("Отмена", null);
+                    showDialog(builder.create());
                     break;
                 }
                 case "ghost_online":
@@ -949,10 +966,6 @@ public class DiveGramFeaturesActivity extends BaseFragment {
                 case TYPE_BUTTON: {
                     TextButtonCell cell = (TextButtonCell) holder.itemView;
                     switch (row.id) {
-                        case "lyrics_editor":
-                            cell.setTitle("Редактор альбомной лирики");
-                            cell.setSubtitle("Двигайте пальцем обложку и текст, меняйте размер щипком — как настройка управления в играх.");
-                            break;
                         case "auto_reply":
                             cell.setTitle("Автоответчик");
                             cell.setSubtitle("Автоматически отвечает на сообщения в личных чатах, как в Telegram Premium.");
@@ -1160,31 +1173,7 @@ public class DiveGramFeaturesActivity extends BaseFragment {
                         case "save_deleted":
                             cell.setTextAndCheckAndSubText("Сохранять удалённые сообщения", "Удалённые собеседником сообщения не исчезают: помечаются корзиной, а при ответе цитата сохраняется. При выключении все сохранённые удаляются из чатов.", SharedConfig.saveDeletedMessages, false);
                             break;
-                case "purge_deleted": {
-                    final int count = SharedConfig.getDeletedMessageKeysCopy().size();
-                    if (getParentActivity() == null) {
-                        break;
-                    }
-                    if (count == 0) {
-                        Toast.makeText(getParentActivity(), "Сохранённых удалённых сообщений нет", Toast.LENGTH_SHORT).show();
-                        break;
-                    }
-                    AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity());
-                    builder.setTitle("Удалить сохранённые удалённые?");
-                    builder.setMessage("Будет убрано " + count + " сохранённых удалённых сообщений. Их больше нельзя будет процитировать в ответе. Сами сообщения в Telegram при этом не изменятся.");
-                    builder.setPositiveButton("Удалить", (dialog, which) -> {
-                        SharedConfig.clearDeletedMessages();
-                        MessagesController.getInstance(getCurrentAccount()).purgeSavedDeletedMessages();
-                        NotificationCenter.getInstance(getCurrentAccount()).postNotificationName(NotificationCenter.updateInterfaces, MessagesController.UPDATE_MASK_ALL);
-                        updateRow("purge_deleted");
-                        updateRow("deleted_opacity");
-                        Toast.makeText(getParentActivity(), "Сохранённые удалённые убраны", Toast.LENGTH_SHORT).show();
-                    });
-                    builder.setNegativeButton("Отмена", null);
-                    builder.show();
-                    break;
-                }
-                case "ghost_online":
+                        case "ghost_online":
                             cell.setTextAndCheckAndSubText("Режим призрака: не показывать «в сети»", "Скрывает ваш статус «в сети» от других пользователей.", SharedConfig.ghostHideOnline, false);
                             break;
                         case "ghost_read":

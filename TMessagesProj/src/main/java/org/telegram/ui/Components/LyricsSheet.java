@@ -379,6 +379,7 @@ public class LyricsSheet extends BottomSheet implements NotificationCenter.Notif
         NotificationCenter.getInstance(messageObject.currentAccount).addObserver(this, NotificationCenter.messagePlayingProgressDidChanged);
         NotificationCenter.getInstance(messageObject.currentAccount).addObserver(this, NotificationCenter.messagePlayingDidReset);
         NotificationCenter.getGlobalInstance().addObserver(this, NotificationCenter.onActivityResultReceived);
+        NotificationCenter.getGlobalInstance().addObserver(this, NotificationCenter.diveGramAlbumLayoutChanged);
 
         LyricsData cached = getCached(key);
         if (forceNoLyricsMode) {
@@ -418,6 +419,16 @@ public class LyricsSheet extends BottomSheet implements NotificationCenter.Notif
             return;
         }
         if (id == NotificationCenter.onActivityResultReceived) {
+            return;
+        }
+        if (id == NotificationCenter.diveGramAlbumLayoutChanged) {
+            buildAlbumLayout();
+            if (data != null && !data.isEmpty()) {
+                renderLines();
+            }
+            if (albumLayout != null) {
+                albumLayout.requestLayout();
+            }
             return;
         }
         if (id == NotificationCenter.messagePlayingDidReset) {
@@ -683,7 +694,7 @@ public class LyricsSheet extends BottomSheet implements NotificationCenter.Notif
         albumTitleTextView.setSingleLine(true);
         albumTitleTextView.setEllipsize(TextUtils.TruncateAt.END);
         albumTitleTextView.setText(musicTitle != null ? musicTitle : "");
-        leftColumn.addView(albumTitleTextView, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.START, 0, dp(14), 0, 0));
+        leftColumn.addView(albumTitleTextView, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.START, 0, dp(8), 0, 0));
 
         albumAuthorTextView = new TextView(context);
         albumAuthorTextView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
@@ -691,11 +702,11 @@ public class LyricsSheet extends BottomSheet implements NotificationCenter.Notif
         albumAuthorTextView.setSingleLine(true);
         albumAuthorTextView.setEllipsize(TextUtils.TruncateAt.END);
         albumAuthorTextView.setText(musicAuthor != null ? musicAuthor : "");
-        leftColumn.addView(albumAuthorTextView, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.START, 0, dp(4), 0, 0));
+        leftColumn.addView(albumAuthorTextView, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.START, 0, dp(2), 0, 0));
 
         albumProgressView = new AlbumProgressView(context);
         albumProgressView.setDurationMs(durationMs);
-        leftColumn.addView(albumProgressView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, dp(4), Gravity.START, 0, dp(12), 0, 0));
+        leftColumn.addView(albumProgressView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, dp(16), Gravity.START, 0, dp(6), 0, 0));
 
         frame.addView(leftColumn, new FrameLayout.LayoutParams(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT));
 
@@ -703,7 +714,7 @@ public class LyricsSheet extends BottomSheet implements NotificationCenter.Notif
         albumLines = new LinearLayout(context);
         albumLines.setOrientation(LinearLayout.VERTICAL);
         albumLines.setGravity(Gravity.START);
-        albumLines.setPadding(0, dp(24), 0, dp(160));
+        albumLines.setPadding(0, dp(20), 0, dp(160));
         albumScroll.addView(albumLines, LayoutHelper.createScroll(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.TOP | Gravity.START));
         frame.addView(albumScroll, new FrameLayout.LayoutParams(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
 
@@ -730,9 +741,17 @@ public class LyricsSheet extends BottomSheet implements NotificationCenter.Notif
             int coverSide = Math.max(dp(60), (int) (SharedConfig.albumCoverSize * minDim));
             coverBlock.measure(
                 MeasureSpec.makeMeasureSpec(coverSide, MeasureSpec.EXACTLY),
-                MeasureSpec.makeMeasureSpec(h, MeasureSpec.AT_MOST));
+                MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED));
             int cw = coverBlock.getMeasuredWidth();
             int ch = coverBlock.getMeasuredHeight();
+            if (ch > h) {
+                coverSide = Math.max(dp(60), coverSide - (ch - h));
+                coverBlock.measure(
+                    MeasureSpec.makeMeasureSpec(coverSide, MeasureSpec.EXACTLY),
+                    MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED));
+                cw = coverBlock.getMeasuredWidth();
+                ch = coverBlock.getMeasuredHeight();
+            }
             int ccx, ccy;
             if (noLyricsMode()) {
                 ccx = w / 2;
@@ -742,7 +761,7 @@ public class LyricsSheet extends BottomSheet implements NotificationCenter.Notif
                 ccy = (int) (SharedConfig.albumCoverY * h);
             }
             int cl = ccx - cw / 2;
-            int ct = ccy - ch / 2;
+            int ct = ccy - ch / 2 - dp(4);
             cl = Math.max(0, Math.min(cl, w - cw));
             ct = Math.max(0, Math.min(ct, h - ch));
             coverBlock.layout(cl, ct, cl + cw, ct + ch);
@@ -827,6 +846,7 @@ public class LyricsSheet extends BottomSheet implements NotificationCenter.Notif
             scrollAnimator.cancel();
         }
         NotificationCenter.getGlobalInstance().removeObserver(this, NotificationCenter.onActivityResultReceived);
+        NotificationCenter.getGlobalInstance().removeObserver(this, NotificationCenter.diveGramAlbumLayoutChanged);
         NotificationCenter.getInstance(messageObject.currentAccount).removeObserver(this, NotificationCenter.messagePlayingProgressDidChanged);
         NotificationCenter.getInstance(messageObject.currentAccount).removeObserver(this, NotificationCenter.messagePlayingDidReset);
         if (orientationLocked) {
@@ -1845,7 +1865,7 @@ public class LyricsSheet extends BottomSheet implements NotificationCenter.Notif
 
         public AlbumProgressView(Context context) {
             super(context);
-            trackPaint.setColor(0x33FFFFFF);
+            trackPaint.setColor(0x4DFFFFFF);
             fillPaint.setColor(0xFFFFFFFF);
         }
 
@@ -1862,26 +1882,59 @@ public class LyricsSheet extends BottomSheet implements NotificationCenter.Notif
         protected void onDraw(Canvas canvas) {
             int w = getWidth();
             int h = getHeight();
-            float r = h / 2f;
-            rectF.set(0, 0, w, h);
+            if (w <= 0 || h <= 0) {
+                return;
+            }
+            float track = Math.min(dp(8), h);
+            float top = (h - track) / 2f;
+            float r = track / 2f;
+            rectF.set(0, top, w, top + track);
             canvas.drawRoundRect(rectF, r, r, trackPaint);
-            int fillW = (int) (w * progress);
+            float fillW = w * progress;
             if (fillW > 0) {
-                rectF.set(0, 0, fillW, h);
+                rectF.set(0, top, fillW, top + track);
                 canvas.drawRoundRect(rectF, r, r, fillPaint);
             }
         }
 
         @Override
         public boolean onTouchEvent(MotionEvent event) {
-            if (event.getAction() == MotionEvent.ACTION_UP) {
-                float p = getWidth() > 0 ? event.getX() / getWidth() : 0f;
-                MessageObject playing = MediaController.getInstance().getPlayingMessageObject();
-                if (playing != null) {
-                    MediaController.getInstance().seekToProgress(playing, Math.max(0f, Math.min(1f, p)));
+            int action = event.getActionMasked();
+            if (action == MotionEvent.ACTION_DOWN) {
+                if (getParent() != null) {
+                    getParent().requestDisallowInterceptTouchEvent(true);
                 }
+                seek(event.getX());
+                return true;
             }
-            return true;
+            if (action == MotionEvent.ACTION_MOVE) {
+                seek(event.getX());
+                return true;
+            }
+            if (action == MotionEvent.ACTION_UP) {
+                seek(event.getX());
+                if (getParent() != null) {
+                    getParent().requestDisallowInterceptTouchEvent(false);
+                }
+                performClick();
+                return true;
+            }
+            if (action == MotionEvent.ACTION_CANCEL) {
+                if (getParent() != null) {
+                    getParent().requestDisallowInterceptTouchEvent(false);
+                }
+                return true;
+            }
+            return super.onTouchEvent(event);
+        }
+
+        private void seek(float x) {
+            float p = getWidth() > 0 ? Math.max(0f, Math.min(1f, x / getWidth())) : 0f;
+            setProgress(p);
+            MessageObject playing = MediaController.getInstance().getPlayingMessageObject();
+            if (playing != null) {
+                MediaController.getInstance().seekToProgress(playing, p);
+            }
         }
     }
 

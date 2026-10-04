@@ -1,11 +1,3 @@
-/*
- * This is the source code of Telegram for Android v. 7.x.x.
- * It is licensed under GNU GPL v. 2 or later.
- * You should have received a copy of the license in this archive (see LICENSE).
- *
- * Copyright Nikolai Kudashov, 2013-2020.
- */
-
 package org.telegram.tgnet.tl;
 
 import org.telegram.tgnet.InputSerializedData;
@@ -66,6 +58,7 @@ public class TL_ephemeral {
 
 
 
+    /* Ephemeral Message */
 
     public static abstract class EphemeralMessage extends TLObject {
         public int flags;
@@ -87,7 +80,7 @@ public class TL_ephemeral {
         public TL_iv.RichMessage rich_message;
         public long chat_instance;
         public int anchor_msg_id;
-        public long via_bot_id;
+        public long via_bot_id; // custom
 
         public static EphemeralMessage TLdeserialize(InputSerializedData stream, int constructor, boolean exception) {
             return TLdeserialize(EphemeralMessage.class, fromConstructor(constructor), stream, constructor, exception);
@@ -333,6 +326,7 @@ public class TL_ephemeral {
 
 
 
+    /* Methods */
 
     public static class TL_sendMessage extends TLMethod<TLRPC.Updates> {
         public static final int constructor = 0xba8d5f35;

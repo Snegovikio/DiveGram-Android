@@ -11,6 +11,7 @@ package org.telegram.messenger;
 import android.content.SharedPreferences;
 
 import org.telegram.tgnet.ConnectionsManager;
+import org.telegram.utils.proxy.ProxySettings;
 
 public class TgWsProxy {
 
@@ -27,19 +28,23 @@ public class TgWsProxy {
 
         ProxyService.start();
 
-        SharedConfig.ProxyInfo info = SharedConfig.addProxy(new SharedConfig.ProxyInfo("127.0.0.1", port, "", "", ""));
+        ProxySettings settings = ProxySettings.builder()
+                .setType(ProxySettings.Type.SOCKS5)
+                .setAddress("127.0.0.1")
+                .setPort(port)
+                .setUser("")
+                .setPassword("")
+                .setSecret("")
+                .build();
+        SharedConfig.ProxyInfo info = SharedConfig.addProxy(new SharedConfig.ProxyInfo(settings));
         SharedConfig.currentProxy = info;
 
         SharedPreferences.Editor editor = MessagesController.getGlobalMainSettings().edit();
-        editor.putString("proxy_ip", info.address);
-        editor.putString("proxy_pass", info.password);
-        editor.putString("proxy_user", info.username);
-        editor.putInt("proxy_port", info.port);
-        editor.putString("proxy_secret", "");
+        settings.toSharedPreferences(editor);
         editor.putBoolean("proxy_enabled", true);
         editor.commit();
 
-        ConnectionsManager.setProxySettings(true, info.address, info.port, info.username, info.password, "");
+        ConnectionsManager.setProxySettings(true, settings);
         SharedConfig.setTgwsProxyEnabled(true);
 
         NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.proxySettingsChanged);
@@ -54,7 +59,7 @@ public class TgWsProxy {
         editor.commit();
 
         SharedConfig.currentProxy = null;
-        ConnectionsManager.setProxySettings(false, "", 1080, "", "", "");
+        ConnectionsManager.setProxySettings(false, null);
         SharedConfig.setTgwsProxyEnabled(false);
 
         NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.proxySettingsChanged);

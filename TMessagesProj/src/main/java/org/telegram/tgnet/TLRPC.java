@@ -57519,10 +57519,10 @@ public class TLRPC {
         public TL_textWithEntities summaryText; //custom
         public String translatedSummaryLanguage; //custom
         public TL_textWithEntities translatedSummaryText; //custom
-        public int ephemeralAnchorMsgId;
+        public int ephemeralAnchorMsgId; // custom
 
         public long ephemeralReceiverBotId; //custom
-        public boolean welcomeTemplateFirst;
+        public boolean welcomeTemplateFirst; // custom
 
 
         private static Message fromConstructor(int constructor) {

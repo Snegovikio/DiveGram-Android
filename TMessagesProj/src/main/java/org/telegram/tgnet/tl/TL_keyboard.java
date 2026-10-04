@@ -1,11 +1,3 @@
-/*
- * This is the source code of Telegram for Android v. 7.x.x.
- * It is licensed under GNU GPL v. 2 or later.
- * You should have received a copy of the license in this archive (see LICENSE).
- *
- * Copyright Nikolai Kudashov, 2013-2020.
- */
-
 package org.telegram.tgnet.tl;
 
 import org.telegram.tgnet.InputSerializedData;
@@ -22,6 +14,7 @@ public class TL_keyboard {
 
     }
 
+    // false super class
     public static abstract class ButtonTypeProto extends TLObject {}
 
     public static abstract class ButtonType extends ButtonTypeProto {
@@ -563,6 +556,7 @@ public class TL_keyboard {
     }
 
 
+    /* * */
 
     private static TLObject TLdeserializeLegacy(InputSerializedData stream, int constructor, boolean exception) {
         final KeyboardButton keyboardButton = KeyboardButton.fromConstructor(constructor);
@@ -581,6 +575,7 @@ public class TL_keyboard {
         return null;
     }
 
+    // false super class
     public interface KeyboardButtonProto {
 
         abstract public ButtonTypeProto getType();
@@ -680,6 +675,7 @@ public class TL_keyboard {
         }
 
         private static KeyboardInlineButton fromConstructorLegacy(int constructor) {
+            // Only for layers 228 and below. If the layer is higher, it must be in fromConstructor
             switch (constructor) {
                 case TL_keyboardInlineButton_legacy.constructor:
                     return new TL_keyboardInlineButton_legacy();
@@ -815,6 +811,7 @@ public class TL_keyboard {
         }
 
         public static KeyboardButton TLdeserialize(InputSerializedData stream, int constructor, boolean exception) {
+            // KeyboardInlineButton keyboardInlineButtonLegacy = KeyboardInlineButton.fromConstructorLegacy(constructor);
             KeyboardInlineButton keyboardInlineButtonLegacy = KeyboardInlineButton.fromConstructor(constructor);
             if (keyboardInlineButtonLegacy != null) {
                 keyboardInlineButtonLegacy.readParams(stream, exception);
@@ -829,6 +826,7 @@ public class TL_keyboard {
         }
     }
 
+    /* * */
 
     public static class TL_keyboardButton extends KeyboardButton {
         public static final int constructor = 0x2F67A72F;
@@ -924,6 +922,7 @@ public class TL_keyboard {
 
 
 
+    // region Legacy button classes
 
     private static class TL_keyboardButton_layer228 extends TL_keyboardButton {
         public static final int constructor = 0x7D170CFF;
@@ -1874,4 +1873,5 @@ public class TL_keyboard {
         }
     }
 
+    // endregion
 }

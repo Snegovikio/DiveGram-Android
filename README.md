@@ -1,16 +1,16 @@
 # DiveGram
 
 Неофициальный Android-клиент на базе исходников Telegram. Это форк официального
-[Telegram for Android](https://github.com/DrKLO/Telegram) с большим набором
+Telegram for Android с большим набором
 собственных функций: обход DPI, приватность, кастомизация внешнего вида, NFC-«дроп»
 контактов, ИИ-анализ чатов, погода в списке чатов, локальные NFT-подарки и другое.
 
 | | |
 |---|---|
 | Пакет | `org.minegram.messenger` |
-| Версия | `12.10.1` (`versionCode 7038`) |
-| База | `DrKLO/Telegram`, upstream-коммит `45ab8f43` |
-| Изменено файлов | 382 относительно upstream |
+| Версия | `12.10.6` (`versionCode 7112`) |
+| База | `DrKLO/Telegram`, upstream-коммит `f2908b1` |
+| Изменено файлов | 366 относительно upstream |
 | Лицензия | GPLv2 (см. `LICENSE`), + правила Telegram API |
 
 > **Это неофициальный клиент.** Он никак не связан с и не одобрен Telegram FZ-LLC.
@@ -43,8 +43,10 @@
 git clone --recursive --shallow-submodules <url-репозитория> DiveGram
 cd DiveGram
 
+
 # 2. Указать путь к SDK
 echo "sdk.dir=/путь/к/Android/Sdk" > local.properties
+
 
 # 3. Вписать свои api_id / api_hash
 nano TMessagesProj/src/main/java/org/telegram/messenger/BuildVars.java
@@ -59,8 +61,12 @@ nano TMessagesProj/src/main/java/org/telegram/messenger/BuildVars.java
 Готовый APK: `TMessagesProj_App/build/outputs/apk/afatRelease/app.apk`
 (имя файла задано `outputFileName = "app.apk"` в `TMessagesProj_App/build.gradle`).
 
-**Важно про сабмодули.** `TMessagesProj/jni/third_party/` содержит три git-сабмодуля
-(`libvpx`, `dav1d`, `ffmpeg`) — без них NDK-сборка не запустится. Забыли `--recursive`?
+**Важно про сабмодули.** С версии 12.10.6 апстрим вынес нативные зависимости в сабмодули,
+а плеер — в отдельный модуль `TMessagesProj_Modules/media` (`Arseny271/media`).
+Всего в `.gitmodules` 15 сабмодулей: `jni/tlottie`, `jni/td`, `lib/jlatexmath`,
+`jni/third_party/{libvpx,dav1d,ffmpeg,libyuv,openh264,boringssl,absl,wamr}`,
+`jni/third_party/xiph/{ogg,opus,opusfile}` и `TMessagesProj_Modules/media`.
+Без них не запустится ни NDK-сборка, ни конфигурация Gradle. Забыли `--recursive`?
 
 ```bash
 git submodule init && git submodule update --init --recursive --depth=1
@@ -402,7 +408,7 @@ Telegram) плюс отдельный `easter_egg` для состояния п�
 
 ## Отличия от upstream
 
-365 изменённых файлов относительно `DrKLO/Telegram` @ `45ab8f43`.
+366 изменённых файлов относительно `DrKLO/Telegram` @ `f2908b1`.
 Основные по числу правок:
 
 - `SharedConfig.java` — все настройки форка (около 60 ключей)
@@ -422,7 +428,7 @@ Telegram) плюс отдельный `easter_egg` для состояния п�
 Полный список своих правок:
 
 ```bash
-git diff --stat 45ab8f43
+git diff --stat f2908b1
 ```
 
 Оригинальный README Telegram сохранён в

@@ -29,6 +29,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import org.telegram.messenger.AndroidUtilities;
+import org.telegram.messenger.NotificationCenter;
 import org.telegram.messenger.R;
 import org.telegram.messenger.SharedConfig;
 import org.telegram.ui.ActionBar.Theme;
@@ -240,6 +241,7 @@ public class LyricsAlbumEditorActivity extends Activity {
             SharedConfig.setAlbumLayout(
                 cover.x, cover.y, cover.sizeOrW,
                 lyrics.x, lyrics.y, lyrics.sizeOrW);
+            NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.diveGramAlbumLayoutChanged);
         }
 
         void resetTo(float cx, float cy, float cs, float lx, float ly, float lw) {

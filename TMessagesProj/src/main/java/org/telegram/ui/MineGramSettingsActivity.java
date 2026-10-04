@@ -24,6 +24,7 @@ import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 
 import androidx.core.graphics.drawable.RoundedBitmapDrawable;
@@ -71,9 +72,16 @@ public class MineGramSettingsActivity extends BaseFragment {
         FrameLayout frameLayout = (FrameLayout) fragmentView;
         frameLayout.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray));
 
+        ScrollView scrollView = new ScrollView(context);
+        scrollView.setFillViewport(true);
+        scrollView.setClipToPadding(false);
+        scrollView.setPadding(0, AndroidUtilities.dp(16), 0, AndroidUtilities.dp(16));
+        scrollView.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray));
+        frameLayout.addView(scrollView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+
         LinearLayout linearLayout = new LinearLayout(context);
         linearLayout.setOrientation(LinearLayout.VERTICAL);
-        frameLayout.addView(linearLayout, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.TOP, 0, 16, 0, 16));
+        scrollView.addView(linearLayout, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
         SharedPreferences prefs = ApplicationLoader.applicationContext.getSharedPreferences("easter_egg", Context.MODE_PRIVATE);
         iconEasterEggActive = prefs.getBoolean("dg_icon_active", false);
@@ -169,6 +177,26 @@ public class MineGramSettingsActivity extends BaseFragment {
         devCell.setSubtitle("@divegramdev — новости разработки");
         devCell.setOnClickListener(v -> MessagesController.getInstance(getCurrentAccount()).openByUserName("divegramdev", MineGramSettingsActivity.this, 1));
         linearLayout.addView(createRoundedCard(context, devCell));
+
+        TextCell siteCell = new TextCell(context);
+        siteCell.setText("Сайт", false);
+        siteCell.setSubtitle("divegram.github.io");
+        siteCell.setOnClickListener(v -> Browser.openUrl(getContext(), "https://divegram.github.io"));
+        linearLayout.addView(createRoundedCard(context, siteCell));
+
+        TextView sponsorHeaderView = new TextView(context);
+        sponsorHeaderView.setText("Спонсоры");
+        sponsorHeaderView.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText3));
+        sponsorHeaderView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
+        sponsorHeaderView.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+        sponsorHeaderView.setPadding(AndroidUtilities.dp(21), 0, 0, 0);
+        linearLayout.addView(sponsorHeaderView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 12, 0, 8));
+
+        TextCell sponsorCell = new TextCell(context);
+        sponsorCell.setText("ПЗМ | Поясни За Мобилу", false);
+        sponsorCell.setSubtitle("@pzmmobile");
+        sponsorCell.setOnClickListener(v -> MessagesController.getInstance(getCurrentAccount()).openByUserName("pzmmobile", MineGramSettingsActivity.this, 1));
+        linearLayout.addView(createRoundedCard(context, sponsorCell));
 
         return fragmentView;
     }

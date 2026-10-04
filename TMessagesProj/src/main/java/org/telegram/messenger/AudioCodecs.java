@@ -12,7 +12,7 @@ import android.content.Context;
 import android.media.AudioDeviceInfo;
 import android.media.AudioManager;
 
-import com.google.android.exoplayer2.C;
+import androidx.media3.common.C;
 
 import org.telegram.tgnet.TLRPC;
 
