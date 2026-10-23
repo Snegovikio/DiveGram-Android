@@ -31,6 +31,7 @@ import android.graphics.Shader;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.LayerDrawable;
 import android.os.Build;
 import android.os.Bundle;
 import android.text.Layout;
@@ -58,12 +59,15 @@ import androidx.collection.LongSparseArray;
 import androidx.core.content.ContextCompat;
 import androidx.core.graphics.ColorUtils;
 import androidx.core.math.MathUtils;
+import androidx.dynamicanimation.animation.FloatValueHolder;
+import androidx.dynamicanimation.animation.SpringAnimation;
+import androidx.dynamicanimation.animation.SpringForce;
 
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ApplicationLoader;
 import org.telegram.messenger.ChatObject;
 import org.telegram.messenger.ChatThemeController;
-import org.telegram.messenger.CodeHighlighting;
+import org.telegram.utils.code.highlight.CodeHighlighting;
 import org.telegram.messenger.ContactsController;
 import org.telegram.messenger.DialogObject;
 import org.telegram.messenger.DownloadController;
@@ -492,6 +496,8 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
     public ImageReceiver avatarImage = new ImageReceiver(this);
     private PhotoBubbleClip bubbleClip;
     private AvatarDrawable avatarDrawable = new AvatarDrawable();
+    private float jellyAvatarScale = 1f;
+    private SpringAnimation jellyAvatarAnimation;
     private boolean animatingArchiveAvatar;
     private float animatingArchiveAvatarProgress;
     private BounceInterpolator interpolator = new BounceInterpolator();
@@ -603,6 +609,10 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
     protected float xOffset;
 
     private boolean drawCount;
+    private boolean drawGramTransfer;
+    private int gramTransferLeft;
+    private LayerDrawable gramTransferDrawable;
+    private int gramTransferColor;
     private boolean drawCount2 = true;
     private int countTop;
     private int countLeft;
@@ -2642,6 +2652,38 @@ if (useSeparator && !cardsEnabled) {
             drawMention = false;
         }
 
+        drawGramTransfer = !drawError && customDialog == null && !isFolderCell() && !isForumCell() && !isDialogFolder()
+            && (unreadCount > 0 || markUnread)
+            && message != null && !message.isOutOwner()
+            && message.messageOwner.action instanceof TLRPC.TL_messageActionGramTransfer;
+        if (drawGramTransfer) {
+            int badgesWidth = 0;
+            if (drawCount && drawCount2) {
+                badgesWidth += countWidth + dp(BADGE_GAP);
+            }
+            if (drawMention && drawCount2) {
+                badgesWidth += mentionWidth + dp(BADGE_GAP);
+            }
+            if (drawReactionMention) {
+                badgesWidth += dp(25);
+            }
+            if (drawPollVotesMention) {
+                badgesWidth += dp(25);
+            }
+            if (openBot) {
+                badgesWidth += (int) openButtonRect.width() + dp(4);
+            }
+            gramTransferLeft = LocaleController.isRTL ? dp(BADGE_MARGIN) + badgesWidth
+                : getMeasuredWidth() - dp(BADGE_MARGIN + 28) - badgesWidth;
+            messageWidth -= dp(32);
+            if (LocaleController.isRTL) {
+                messageLeft += dp(32);
+                typingLeft += dp(32);
+                buttonLeft += dp(32);
+                messageNameLeft += dp(32);
+            }
+        }
+
         if (checkMessage) {
             if (messageString == null) {
                 messageString = "";
@@ -2762,6 +2804,10 @@ if (useSeparator && !cardsEnabled) {
                 }
             } else {
                 messageStringFinal = messageString;
+            }
+
+            if (messageStringFinal != null && messageStringFinal.toString().contains("dive://emoji/")) {
+                messageStringFinal = MessageObject.replaceDiveEmojisForPreview(currentAccount, messageStringFinal);
             }
 
             Layout.Alignment align = isForum && LocaleController.isRTL ? Layout.Alignment.ALIGN_OPPOSITE : Layout.Alignment.ALIGN_NORMAL;
@@ -4708,6 +4754,21 @@ if (useSeparator && !cardsEnabled) {
                 canvas.restore();
             }
 
+            if (drawGramTransfer) {
+                if (gramTransferDrawable == null) {
+                    gramTransferDrawable = (LayerDrawable) ContextCompat.getDrawable(getContext(), R.drawable.dialog_gram_transfer).mutate();
+                }
+                final int color = Theme.getColor(isCounterMuted()
+                    ? Theme.key_chats_unreadCounterMuted : Theme.key_chats_unreadCounter, resourcesProvider);
+                if (gramTransferColor != color) {
+                    gramTransferDrawable.getDrawable(0).setColorFilter(new PorterDuffColorFilter(gramTransferColor = color, PorterDuff.Mode.SRC_IN));
+                }
+                final int top = countTop + (dp(BADGE_SIZE) - dp(28)) / 2;
+                gramTransferDrawable.setBounds(gramTransferLeft, top, gramTransferLeft + dp(28), top + dp(28));
+                gramTransferDrawable.setAlpha((int) ((1.0f - reorderIconProgress) * 255));
+                gramTransferDrawable.draw(canvas);
+            }
+
             if (thumbsCount > 0 && updateHelper.typingProgres != 1f) {
                 float alpha = 1f;
                 if (updateHelper.typingProgres > 0) {
@@ -4797,6 +4858,11 @@ if (useSeparator && !cardsEnabled) {
         }
 
         if (drawAvatar && (!(isTopic && forumTopic != null && forumTopic.id == 1) || archivedChatsDrawable == null || !archivedChatsDrawable.isDraw())) {
+            boolean jellyScaled = SharedConfig.dgJellyAvatars && Math.abs(jellyAvatarScale - 1f) > 0.001f;
+            if (jellyScaled) {
+                canvas.save();
+                canvas.scale(jellyAvatarScale, jellyAvatarScale, storyParams.originalAvatarRect.centerX(), storyParams.originalAvatarRect.centerY());
+            }
             if (drawMonoforumAvatar) {
                 if (bubbleClip == null) {
                     bubbleClip = new PhotoBubbleClip();
@@ -4842,6 +4908,9 @@ if (useSeparator && !cardsEnabled) {
                     dp(8), Theme.fillingPaint(Theme.getColor(Theme.key_windowBackgroundWhite, resourcesProvider)));
 
                 communityArrowDrawable.draw(canvas);
+            }
+            if (jellyScaled) {
+                canvas.restore();
             }
         }
 
@@ -6183,8 +6252,29 @@ if (useSeparator && !cardsEnabled) {
         return super.onInterceptTouchEvent(ev);
     }
 
+    private void animateJellyAvatar(float target, float damping, float stiffness) {
+        if (jellyAvatarAnimation == null) {
+            jellyAvatarAnimation = new SpringAnimation(new FloatValueHolder(jellyAvatarScale));
+            jellyAvatarAnimation.setMinimumVisibleChange(0.001f);
+            jellyAvatarAnimation.addUpdateListener((animation, value, velocity) -> {
+                jellyAvatarScale = value;
+                invalidate();
+            });
+        }
+        jellyAvatarAnimation.setSpring(new SpringForce(target).setDampingRatio(damping).setStiffness(stiffness));
+        jellyAvatarAnimation.animateToFinalPosition(target);
+    }
+
     @Override
     public boolean dispatchTouchEvent(MotionEvent ev) {
+        if (SharedConfig.dgJellyAvatars) {
+            final int action = ev.getActionMasked();
+            if (action == MotionEvent.ACTION_DOWN) {
+                animateJellyAvatar(0.9f, 1f, 750f);
+            } else if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
+                animateJellyAvatar(1f, 0.38f, 480f);
+            }
+        }
         if (!isTopic && !isShareToStoryCell && ev.getAction() == MotionEvent.ACTION_UP || ev.getAction() == MotionEvent.ACTION_CANCEL) {
             storyParams.checkOnTouchEvent(ev, this);
         }

@@ -395,7 +395,7 @@ public class ChatThemeBottomSheet extends BottomSheet implements NotificationCen
     private ColoredImageSpan lockSpan;
     private void updateState(boolean animated) {
         TLRPC.Chat chat = chatActivity.getCurrentChat();
-        if (chat != null) {
+        if (chat != null && !SharedConfig.dgPerChatThemes) {
             checkBoostsLevel();
         }
         if (!dataLoaded) {
@@ -418,7 +418,7 @@ public class ChatThemeBottomSheet extends BottomSheet implements NotificationCen
                     applyTextView.setText(LocaleController.getString(R.string.ChatResetTheme));
                 } else {
                     applyTextView.setText(LocaleController.getString(R.string.ChatApplyTheme));
-                    if (chat != null && boostsStatus != null && boostsStatus.level < chatActivity.getMessagesController().channelWallpaperLevelMin) {
+                    if (!SharedConfig.dgPerChatThemes && chat != null && boostsStatus != null && boostsStatus.level < chatActivity.getMessagesController().channelWallpaperLevelMin) {
                         showSubText = true;
                         SpannableStringBuilder text = new SpannableStringBuilder("l");
                         if (lockSpan == null) {
@@ -1005,7 +1005,7 @@ public class ChatThemeBottomSheet extends BottomSheet implements NotificationCen
         if (checkingBoostsLevel) {
             return;
         }
-        if (boostsStatus != null && boostsStatus.level < chatActivity.getMessagesController().channelWallpaperLevelMin) {
+        if (!SharedConfig.dgPerChatThemes && boostsStatus != null && boostsStatus.level < chatActivity.getMessagesController().channelWallpaperLevelMin) {
             chatActivity.getMessagesController().getBoostsController().userCanBoostChannel(chatActivity.getDialogId(), boostsStatus, canApplyBoost -> {
                 if (getContext() == null) {
                     return;
@@ -1035,8 +1035,12 @@ public class ChatThemeBottomSheet extends BottomSheet implements NotificationCen
                     () -> applySelectedTheme(true));
                 return;
             }
-            ChatThemeController.getInstance(currentAccount).clearWallpaper(chatActivity.getDialogId(), false);
-            ChatThemeController.getInstance(currentAccount).setDialogTheme(chatActivity.getDialogId(), tlChatTheme, true);
+            if (SharedConfig.dgPerChatThemes) {
+                ChatThemeController.getInstance(currentAccount).clearWallpaperLocally(chatActivity.getDialogId());
+            } else {
+                ChatThemeController.getInstance(currentAccount).clearWallpaper(chatActivity.getDialogId(), false);
+            }
+            ChatThemeController.getInstance(currentAccount).setDialogTheme(chatActivity.getDialogId(), tlChatTheme, !SharedConfig.dgPerChatThemes);
             TLRPC.WallPaper wallpaper = hasChanges() ? null : themeDelegate.getCurrentWallpaper();
             if (!chatTheme.showAsDefaultStub) {
                 themeDelegate.setCurrentTheme(chatTheme, wallpaper, true, originalIsDark);

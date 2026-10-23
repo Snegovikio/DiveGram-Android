@@ -220,6 +220,7 @@ import org.telegram.ui.Stars.StarsController;
 import org.telegram.ui.Stars.StarsIntroActivity;
 import org.telegram.ui.Stories.StealthModeAlert;
 import org.telegram.ui.Stories.recorder.ButtonWithCounterView;
+import org.telegram.ui.Wallet.WalletActivity;
 import org.telegram.ui.bots.BotWebViewSheet;
 import org.telegram.ui.Components.Bulletin;
 import org.telegram.ui.Components.BulletinFactory;
@@ -685,6 +686,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     public boolean notify = true;
     public int scheduleDate;
     public int scheduleRepeatPeriod;
+    public boolean forceDocument;
 
     private int canReadCount;
     private int canPinCount;
@@ -2888,9 +2890,9 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             });
 
             iBlur3FactoryFrostedLiquidGlass = new BlurredBackgroundDrawableViewFactory(iBlur3SourceGlassFrosted);
-            iBlur3FactoryFrostedLiquidGlass.setLiquidGlassEffectAllowed(LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS));
+            iBlur3FactoryFrostedLiquidGlass.setLiquidGlassEffectAllowed(LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS) && !SharedConfig.dgMd3Master);
             iBlur3FactoryLiquidGlass = new BlurredBackgroundDrawableViewFactory(iBlur3SourceGlass);
-            iBlur3FactoryLiquidGlass.setLiquidGlassEffectAllowed(LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS));
+            iBlur3FactoryLiquidGlass.setLiquidGlassEffectAllowed(LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS) && !SharedConfig.dgMd3Master);
             iBlur3FactoryBlur = new BlurredBackgroundDrawableViewFactory(iBlur3SourceGlassFrosted);
         } else {
             scrollableViewNoiseSuppressor = null;
@@ -2987,6 +2989,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 .add(NotificationCenter.chatPlatesNeedUpdate)
                 .add(NotificationCenter.diveGramTitleChanged)
                 .add(NotificationCenter.diveGramWeatherChanged)
+                .add(NotificationCenter.didSetNewTheme)
                 .add(NotificationCenter.dialogFiltersUpdated)
                 .add(NotificationCenter.updateInterfaces)
                 .add(NotificationCenter.encryptedChatUpdated)
@@ -3291,6 +3294,11 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         pacmanAnimation = null;
         filterTabsView = null;
         selectedDialogs.clear();
+        if (SharedConfig.dgPlaylistEnabled) {
+            org.telegram.messenger.DiveGramLocalChat.ensure(currentAccount);
+        } else {
+            org.telegram.messenger.DiveGramLocalChat.remove(currentAccount);
+        }
 
         maximumVelocity = ViewConfiguration.get(context).getScaledMaximumFlingVelocity();
 
@@ -4784,6 +4792,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             }
             viewPage.dialogsAdapter.setArchivedPullDrawable(viewPage.pullForegroundDrawable);
             viewPage.listView.setAdapter(viewPage.dialogsAdapter);
+            org.telegram.ui.Components.DiveGramScrollBlur.attach(viewPage.listView);
 
             viewPage.listView.setEmptyView(folderId == 0 && communityId == 0 ? viewPage.progressView : null);
             viewPage.scrollHelper = new RecyclerAnimationScrollHelper(viewPage.listView, viewPage.layoutManager);
@@ -5224,6 +5233,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 if (delegate == null || selectedDialogs.isEmpty()) {
                     return;
                 }
+                forceDocument = false;
                 ArrayList<MessagesStorage.TopicKey> topicKeys = new ArrayList<>();
                 for (int i = 0; i < selectedDialogs.size(); i++) {
                     topicKeys.add(MessagesStorage.TopicKey.of(selectedDialogs.get(i), 0));
@@ -6922,12 +6932,24 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         }
     }
 
+    private Bitmap processedWallpaperSource;
+    private Bitmap processedWallpaperResult;
+    private boolean processedWallpaperDark;
+    private int processedWallpaperBlur = -1;
+
     private Bitmap processWallpaperBitmap(Bitmap source) {
         if (source == null || source.isRecycled()) {
             return null;
         }
+        final boolean dark = Theme.isCurrentThemeDark();
+        final int blur = SharedConfig.dgOptimization ? 0 : SharedConfig.dialogsWallpaperBlur;
+        if (processedWallpaperResult != null && processedWallpaperSource == source
+                && processedWallpaperDark == dark && processedWallpaperBlur == blur
+                && !processedWallpaperResult.isRecycled()) {
+            return processedWallpaperResult;
+        }
         Bitmap result = source;
-        if (!Theme.isCurrentThemeDark()) {
+        if (!dark) {
             try {
                 Bitmap light = Bitmap.createBitmap(source.getWidth(), source.getHeight(), Bitmap.Config.ARGB_8888);
                 Canvas canvas = new Canvas(light);
@@ -6939,21 +6961,23 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 result = source;
             }
         }
-        int blur = SharedConfig.dialogsWallpaperBlur;
-        if (blur <= 0 || result == null || result.isRecycled()) {
-            return result;
+        if (blur > 0 && result != null && !result.isRecycled()) {
+            try {
+                Bitmap small = Bitmap.createBitmap(Math.max(1, result.getWidth() / 2), Math.max(1, result.getHeight() / 2), Bitmap.Config.ARGB_8888);
+                Canvas canvas = new Canvas(small);
+                Paint paint = new Paint(Paint.FILTER_BITMAP_FLAG | Paint.ANTI_ALIAS_FLAG);
+                canvas.drawBitmap(result, null, new RectF(0, 0, small.getWidth(), small.getHeight()), paint);
+                Utilities.stackBlurBitmap(small, 1 + Math.round(blur / 8f));
+                result = small;
+            } catch (Exception e) {
+                FileLog.e(e);
+            }
         }
-        try {
-            Bitmap small = Bitmap.createBitmap(Math.max(1, result.getWidth() / 2), Math.max(1, result.getHeight() / 2), Bitmap.Config.ARGB_8888);
-            Canvas canvas = new Canvas(small);
-            Paint paint = new Paint(Paint.FILTER_BITMAP_FLAG | Paint.ANTI_ALIAS_FLAG);
-            canvas.drawBitmap(result, null, new RectF(0, 0, small.getWidth(), small.getHeight()), paint);
-            Utilities.stackBlurBitmap(small, 1 + Math.round(blur / 8f));
-            return small;
-        } catch (Exception e) {
-            FileLog.e(e);
-            return result;
-        }
+        processedWallpaperSource = source;
+        processedWallpaperResult = result;
+        processedWallpaperDark = dark;
+        processedWallpaperBlur = blur;
+        return result;
     }
 
     private static class CoverBitmapDrawable extends android.graphics.drawable.Drawable {
@@ -7051,14 +7075,16 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 if (fragmentView != null) {
                     fragmentView.setBackground(new CoverBitmapDrawable(processed, own));
                 }
-                viewPage.listView.setBackground(new CoverBitmapDrawable(processed, own));
+                // фон рисуется один раз на fragmentView — страницы (папки) прозрачны,
+                // поэтому при переключении папок обои не «уезжают» за пейджем
+                viewPage.listView.setBackground(null);
                 return;
             }
             if (nonBitmapWallpaper != null) {
                 if (fragmentView != null) {
                     fragmentView.setBackground(nonBitmapWallpaper.getConstantState() != null ? nonBitmapWallpaper.getConstantState().newDrawable() : nonBitmapWallpaper);
                 }
-                viewPage.listView.setBackground(nonBitmapWallpaper);
+                viewPage.listView.setBackground(null);
                 return;
             }
             if (fragmentView != null) {
@@ -7411,9 +7437,6 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 tv.setGravity(Gravity.CENTER);
                 tv.setSingleLine(true);
                 tv.setPadding(dp(8), 0, dp(8), 0);
-                tv.setTextColor(Theme.isCurrentThemeDark()
-                        ? Theme.getColor(Theme.key_windowBackgroundWhiteGrayText2)
-                        : Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
                 tv.setClickable(true);
                 tv.setEnabled(true);
                 tv.setOnClickListener(v -> {
@@ -7431,6 +7454,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 weatherTextView = tv;
             }
             String cached = DiveGramWeather.getCached();
+            weatherTextView.setTextColor(getThemedColor(Theme.key_actionBarDefaultSubtitle));
             weatherTextView.setVisibility(View.VISIBLE);
             weatherViewTextSet(cached);
         } catch (Exception e) {
@@ -7448,6 +7472,13 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     @Override
     public void onResume() {
         super.onResume();
+        final boolean liquidGlass = LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS) && !SharedConfig.dgMd3Master;
+        if (iBlur3FactoryLiquidGlass != null) {
+            iBlur3FactoryLiquidGlass.setLiquidGlassEffectAllowed(liquidGlass);
+        }
+        if (iBlur3FactoryFrostedLiquidGlass != null) {
+            iBlur3FactoryFrostedLiquidGlass.setLiquidGlassEffectAllowed(liquidGlass);
+        }
         if (initialDialogsType == DIALOGS_TYPE_DEFAULT && !onlySelect && folderId == 0 && communityId == 0 && TextUtils.isEmpty(searchString)) {
             updateMainTitle();
         } else {
@@ -8442,6 +8473,11 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             return;
         }
 
+        if (dialogId == org.telegram.messenger.DiveGramLocalChat.DIALOG_ID && SharedConfig.dgPlaylistEnabled) {
+            presentFragment(new DiveGramPlaylistActivity());
+            return;
+        }
+
         if (onlySelect) {
             if (!validateSlowModeDialog(dialogId)) {
                 return;
@@ -9213,7 +9249,9 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 }
             }
             int maxPinnedCount;
-            if (containsFilter && filter != null) {
+            if (SharedConfig.dgInfinitePins) {
+                maxPinnedCount = Integer.MAX_VALUE / 2;
+            } else if (containsFilter && filter != null) {
                 maxPinnedCount = 100 - filter.alwaysShow.size();
             } else if (folderId != 0 || filter != null) {
                 if (getUserConfig().isPremium()) {
@@ -9751,6 +9789,9 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 }
             }
             int maxPinnedCount;
+            if (SharedConfig.dgInfinitePins) {
+                maxPinnedCount = Integer.MAX_VALUE / 2;
+            } else
             if (containsFilter) {
                 maxPinnedCount = 100 - filter.alwaysShow.size();
             } else if (folderId != 0 || filter != null) {
@@ -11041,6 +11082,8 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                     weatherViewTextSet(DiveGramWeather.getCached());
                 }
             });
+        } else if (id == NotificationCenter.didSetNewTheme) {
+            AndroidUtilities.runOnUIThread(this::updateWeatherWidget);
         } else if (id == NotificationCenter.chatPlatesNeedUpdate) {
             if (viewPages != null) {
                 for (int a = 0; a < viewPages.length; a++) {
@@ -11904,6 +11947,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         }
         sharedMediaEntries = entries;
         sharedLink = null;
+        forceDocument = false;
         if (commentView != null) {
             attachShareTopView(initialCaption);
         } else {
@@ -12059,6 +12103,16 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             }
 
             @Override
+            public int getSelectedCount() {
+                return sharedMediaEntries != null ? sharedMediaEntries.size() : 0;
+            }
+
+            @Override
+            public boolean canSendAsFile() {
+                return canSendDocumentsToSelectedDialogs();
+            }
+
+            @Override
             public long getDialogId() {
                 return selectedDialogs.isEmpty() ? 0 : selectedDialogs.get(0);
             }
@@ -12115,10 +12169,11 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 if (shareTopView != null) {
                     shareTopView.setSharedMedia(currentAccount, sharedMediaEntries);
                 }
-                final boolean useExternalOptions = !notify || scheduleDate != 0;
+                final boolean useExternalOptions = !notify || scheduleDate != 0 || forceDocument;
                 if (useExternalOptions && delegate != null && !selectedDialogs.isEmpty()) {
                     DialogsActivity.this.notify = notify;
                     DialogsActivity.this.scheduleDate = scheduleDate;
+                    DialogsActivity.this.forceDocument = forceDocument;
                     final ArrayList<MessagesStorage.TopicKey> topicKeys = new ArrayList<>();
                     for (int i = 0; i < selectedDialogs.size(); i++) {
                         topicKeys.add(MessagesStorage.TopicKey.of(selectedDialogs.get(i), 0));
@@ -12481,10 +12536,20 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         );
     }
 
+    private boolean canSendDocumentsToSelectedDialogs() {
+        for (int i = 0; i < selectedDialogs.size(); ++i) {
+            final TLRPC.Chat chat = getMessagesController().getChat(-selectedDialogs.get(i));
+            if (chat != null && !ChatObject.canSendDocument(chat)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     private boolean onSendLongClick(View view) {
         if (getParentActivity() == null) return false;
 
-        boolean onlyMyself = false;
+        boolean onlyMyself = !selectedDialogs.isEmpty();
         boolean canSchedule = true;
         for (int i = 0; i < selectedDialogs.size(); ++i) {
             final long did = selectedDialogs.get(i);
@@ -12500,9 +12565,20 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         }
         final boolean onlyMyselfFinal = onlyMyself;
 
+        boolean canSendDocs = hasSharedMediaEntries() && canSendDocumentsToSelectedDialogs();
+        if (canSendDocs) {
+            for (MediaController.PhotoEntry entry : sharedMediaEntries) {
+                if (entry.hasVideoEditsLostAsDocument()) {
+                    canSendDocs = false;
+                    break;
+                }
+            }
+        }
+        final boolean multipleMedia = sharedMediaEntries != null && sharedMediaEntries.size() > 1;
+
         ItemOptions.makeOptions(this, view)
-            .add(R.drawable.input_notify_off, getString(R.string.SendWithoutSound), () -> {
-                this.notify = false;
+            .addIf(canSendDocs, R.drawable.msg_sendfile, LocaleController.getString(multipleMedia ? R.string.SendAsFiles : R.string.SendAsFile), () -> {
+                this.forceDocument = true;
                 if (delegate == null || selectedDialogs.isEmpty()) {
                     return;
                 }
@@ -12511,12 +12587,24 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                     topicKeys.add(MessagesStorage.TopicKey.of(selectedDialogs.get(i), 0));
                 delegate.didSelectDialogs(DialogsActivity.this, topicKeys, commentView.getFieldText(), false, notify, scheduleDate, scheduleRepeatPeriod, null);
             })
-            .addIf(canSchedule, R.drawable.msg_calendar2, LocaleController.getString(R.string.ScheduleMessage), () -> {
+            .add(R.drawable.input_notify_off, getString(R.string.SendWithoutSound), () -> {
+                this.notify = false;
+                this.forceDocument = false;
+                if (delegate == null || selectedDialogs.isEmpty()) {
+                    return;
+                }
+                final ArrayList<MessagesStorage.TopicKey> topicKeys = new ArrayList<>();
+                for (int i = 0; i < selectedDialogs.size(); i++)
+                    topicKeys.add(MessagesStorage.TopicKey.of(selectedDialogs.get(i), 0));
+                delegate.didSelectDialogs(DialogsActivity.this, topicKeys, commentView.getFieldText(), false, notify, scheduleDate, scheduleRepeatPeriod, null);
+            })
+            .addIf(canSchedule, R.drawable.msg_calendar2, LocaleController.getString(onlyMyselfFinal ? R.string.SetReminder : R.string.ScheduleMessage), () -> {
                 AlertsCreator.createScheduleDatePickerDialog(getParentActivity(), onlyMyselfFinal ? getUserConfig().getClientUserId() : -1, new AlertsCreator.ScheduleDatePickerDelegate() {
                     @Override
                     public void didSelectDate(boolean notify, int scheduleDate, int scheduleRepeatPeriod) {
                         DialogsActivity.this.scheduleDate = scheduleDate;
                         DialogsActivity.this.scheduleRepeatPeriod = scheduleRepeatPeriod;
+                        DialogsActivity.this.forceDocument = false;
                         if (delegate == null || selectedDialogs.isEmpty()) {
                             return;
                         }
@@ -14291,27 +14379,33 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         if (ApplicationLoader.applicationLoaderInstance != null) {
             ApplicationLoader.applicationLoaderInstance.addItemOptions(io);
         }
-        TLRPC.TL_attachMenuBots menuBots = MediaDataController.getInstance(UserConfig.selectedAccount).getAttachMenuBots();
-        if (launchActivity != null && menuBots != null && menuBots.bots != null && !menuBots.bots.isEmpty()) {
-            for (TLRPC.TL_attachMenuBot attachMenuBot : menuBots.bots) {
-                if (attachMenuBot.show_in_side_menu) {
-                    io.addBot(attachMenuBot, () -> {
-                        if (attachMenuBot.inactive || attachMenuBot.side_menu_disclaimer_needed) {
-                            WebAppDisclaimerAlert.show(getContext(), (allowSendMessage) -> {
-                                TLRPC.TL_messages_toggleBotInAttachMenu botRequest = new TLRPC.TL_messages_toggleBotInAttachMenu();
-                                botRequest.bot = MessagesController.getInstance(currentAccount).getInputUser(attachMenuBot.bot_id);
-                                botRequest.enabled = true;
-                                botRequest.write_allowed = true;
-                                ConnectionsManager.getInstance(currentAccount).sendRequest(botRequest, (response2, error2) -> AndroidUtilities.runOnUIThread(() -> {
-                                    attachMenuBot.inactive = attachMenuBot.side_menu_disclaimer_needed = false;
-                                    LaunchActivity.showAttachMenuBot(launchActivity, currentAccount, attachMenuBot, null, true);
-                                    MediaDataController.getInstance(currentAccount).updateAttachMenuBotsInCache();
-                                }), ConnectionsManager.RequestFlagInvokeAfter | ConnectionsManager.RequestFlagFailOnServerErrors);
-                            }, null, null);
-                        } else {
-                            LaunchActivity.showAttachMenuBot(launchActivity, currentAccount, attachMenuBot, null, true);
-                        }
-                    }, () -> BotWebViewSheet.deleteBot(currentAccount, attachMenuBot.bot_id, null));
+        if (getMessagesController().config.walletAvailable.get()) {
+            io.add(R.drawable.ic_gram, LocaleController.getString(R.string.WalletAttachMoney), () -> {
+                presentFragment(new WalletActivity());
+            });
+        } else {
+            TLRPC.TL_attachMenuBots menuBots = MediaDataController.getInstance(UserConfig.selectedAccount).getAttachMenuBots();
+            if (launchActivity != null && menuBots != null && menuBots.bots != null && !menuBots.bots.isEmpty()) {
+                for (TLRPC.TL_attachMenuBot attachMenuBot : menuBots.bots) {
+                    if (attachMenuBot.show_in_side_menu) {
+                        io.addBot(attachMenuBot, () -> {
+                            if (attachMenuBot.inactive || attachMenuBot.side_menu_disclaimer_needed) {
+                                WebAppDisclaimerAlert.show(getContext(), (allowSendMessage) -> {
+                                    TLRPC.TL_messages_toggleBotInAttachMenu botRequest = new TLRPC.TL_messages_toggleBotInAttachMenu();
+                                    botRequest.bot = MessagesController.getInstance(currentAccount).getInputUser(attachMenuBot.bot_id);
+                                    botRequest.enabled = true;
+                                    botRequest.write_allowed = true;
+                                    ConnectionsManager.getInstance(currentAccount).sendRequest(botRequest, (response2, error2) -> AndroidUtilities.runOnUIThread(() -> {
+                                        attachMenuBot.inactive = attachMenuBot.side_menu_disclaimer_needed = false;
+                                        LaunchActivity.showAttachMenuBot(launchActivity, currentAccount, attachMenuBot, null, true);
+                                        MediaDataController.getInstance(currentAccount).updateAttachMenuBotsInCache();
+                                    }), ConnectionsManager.RequestFlagInvokeAfter | ConnectionsManager.RequestFlagFailOnServerErrors);
+                                }, null, null);
+                            } else {
+                                LaunchActivity.showAttachMenuBot(launchActivity, currentAccount, attachMenuBot, null, true);
+                            }
+                        }, () -> BotWebViewSheet.deleteBot(currentAccount, attachMenuBot.bot_id, null));
+                    }
                 }
             }
         }

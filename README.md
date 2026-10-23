@@ -1,22 +1,23 @@
 # DiveGram
 
-Неофициальный Android-клиент на базе исходников Telegram. Это форк официального
-Telegram for Android с большим набором
-собственных функций: обход DPI, приватность, кастомизация внешнего вида, NFC-«дроп»
-контактов, ИИ-анализ чатов, погода в списке чатов, локальные NFT-подарки и другое.
+Исходники Android-клиента **DiveGram** (репозиторий `DiveGram-Android`).
+Неофициальный клиент на базе Telegram for Android с большим набором собственных
+функций: обход DPI, приватность, кастомизация внешнего вида, NFC-«дроп» контактов,
+ИИ-анализ чатов, погода в списке чатов, локальные NFT-подарки и другое.
 
 | | |
 |---|---|
 | Пакет | `org.minegram.messenger` |
-| Версия | `12.10.6` (`versionCode 7112`) |
-| База | `DrKLO/Telegram`, upstream-коммит `f2908b1` |
-| Изменено файлов | 366 относительно upstream |
+| Версия | `13.0.3` (`versionCode 7183`) |
+| База | `DrKLO/Telegram`, upstream `13.0.3` (`7183`) |
+| Изменено файлов | 451 относительно upstream |
 | Лицензия | GPLv2 (см. `LICENSE`), + правила Telegram API |
 
 > **Это неофициальный клиент.** Он никак не связан с и не одобрен Telegram FZ-LLC.
 > Разработчики не несут ответственности за ваши данные. Перед публикацией своей
 > сборки прочитайте [«Что нужно заполнить»](#что-нужно-заполнить-перед-сборкой) —
-> в этом репозитории **намеренно удалены** чужие `api_id`/`api_hash` и ключи.
+> в этом репозитории **намеренно удалены** чужие `api_id`/`api_hash`, ключ OpenWeather
+> и ссылки на конфиги бейджей/страйков.
 
 ---
 
@@ -43,7 +44,6 @@ Telegram for Android с большим набором
 git clone --recursive --shallow-submodules <url-репозитория> DiveGram
 cd DiveGram
 
-
 # 2. Указать путь к SDK
 echo "sdk.dir=/путь/к/Android/Sdk" > local.properties
 
@@ -61,10 +61,14 @@ nano TMessagesProj/src/main/java/org/telegram/messenger/BuildVars.java
 Готовый APK: `TMessagesProj_App/build/outputs/apk/afatRelease/app.apk`
 (имя файла задано `outputFileName = "app.apk"` в `TMessagesProj_App/build.gradle`).
 
-**Важно про сабмодули.** С версии 12.10.6 апстрим вынес нативные зависимости в сабмодули,
+> `local.properties`, `release.keystore`, `build/`, `.gradle/` и личные ключи
+> в git не входят. Не добавляйте их в коммит.
+
+**Важно про сабмодули.** Апстрим вынес нативные зависимости в сабмодули,
 а плеер — в отдельный модуль `TMessagesProj_Modules/media` (`Arseny271/media`).
-Всего в `.gitmodules` 15 сабмодулей: `jni/tlottie`, `jni/td`, `lib/jlatexmath`,
-`jni/third_party/{libvpx,dav1d,ffmpeg,libyuv,openh264,boringssl,absl,wamr}`,
+Всего в `.gitmodules` 19 сабмодулей: `jni/tlottie`, `jni/td`, `jni/tgcalls`,
+`jni/wallet-engine`, `lib/jlatexmath`,
+`jni/third_party/{libvpx,dav1d,ffmpeg,libyuv,openh264,boringssl,absl,wamr,boost-regex,libprisma}`,
 `jni/third_party/xiph/{ogg,opus,opusfile}` и `TMessagesProj_Modules/media`.
 Без них не запустится ни NDK-сборка, ни конфигурация Gradle. Забыли `--recursive`?
 
@@ -78,21 +82,20 @@ git submodule init && git submodule update --init --recursive --depth=1
 
 | Компонент | Версия | Откуда |
 |---|---|---|
-| JDK | **17** | `Dockerfile`: `gradle:8.7.0-jdk17` |
-| Android SDK | 35 | `compileSdkVersion 35` |
-| Build Tools | 35.0.0 | `buildToolsVersion '35.0.0'` |
+| JDK | **17** | `Dockerfile`: `gradle:8.13-jdk17` |
+| Android SDK | 36 | `compileSdkVersion 36` |
+| Build Tools | 36.0.0 | `buildToolsVersion '36.0.0'` |
 | Android NDK | **27.2.12479018** | `ndkVersion` в `TMessagesProj_App/build.gradle` |
-| Gradle | 8.7 | `gradle/wrapper/gradle-wrapper.properties` |
-| Android Gradle Plugin | 8.6.1 | `build.gradle` |
-| Kotlin | 1.9.20 | `build.gradle` |
-| CMake / NDK-build | из NDK | для нативной части |
+| Gradle | 8.13 | `gradle/wrapper/gradle-wrapper.properties` |
+| Android Gradle Plugin | 8.13.2 | `build.gradle` |
+| Kotlin | 2.1.0 | `build.gradle` |
+| CMake | 3.22.1 | `externalNativeBuild` в `TMessagesProj_App/build.gradle` |
 
-> ⚠️ **Расхождение в репозитории:** в `Dockerfile` указан NDK `21.4.7075529`,
-> а в `TMessagesProj_App/build.gradle` — `27.2.12479018`. Это наследие upstream.
-> Верьте `build.gradle` и ставьте **27.2.12479018**, иначе нативная сборка падает.
+> NDK зафиксирован в `Dockerfile` и `TMessagesProj_App/build.gradle`:
+> **27.2.12479018**. Другая версия может сломать нативную сборку.
 
 **Железо.** Собираются сразу 4 ABI (`armeabi-v7a`, `arm64-v8a`, `x86`, `x86_64`),
-поэтому нужно ~16 ГБ RAM (в `gradle.properties` стоит `-Xmx6144M`) и ~30 ГБ
+поэтому нужно ~16 ГБ RAM (в `gradle.properties` стоит `-Xmx8g`) и ~30 ГБ
 свободного места. Первая сборка нативной части занимает 20–40 минут, последующие
 инкрементальные — несколько минут. Ограничить список ABI, чтобы ускорить сборку,
 можно в `TMessagesProj_App/build.gradle` → `productFlavors` → `abiFilters`.
@@ -113,8 +116,9 @@ org.gradle.java.home=/путь/к/jdk-17
 
 ## Что нужно заполнить перед сборкой
 
-Из репозитория **намеренно вырезаны** личные ключи автора. Пока они пустые,
-приложение собирается, но **не подключается к серверам Telegram**.
+Из репозитория **намеренно вырезаны** `api_id`/`api_hash`, ключ OpenWeather и ссылки
+на конфиги бейджей/страйков. Пока `api_id` пустой, приложение собирается,
+но **не подключается к серверам Telegram**.
 
 ### 1. `api_id` / `api_hash` — обязательно
 
@@ -132,36 +136,33 @@ public static String APP_HASH = "";
 
 ### 2. Подпись (`release.keystore`)
 
-Лежит в `TMessagesProj/config/release.keystore`. Это **фиктивный keystore из
-upstream** (`CN=Android Developer, OU=Telegram`, 2019 г.), пароли — `android`.
-Он в комплекте с открытым исходником, и им подписан сам Telegram.
-
-Для публикации своей сборки сделайте свой:
+Файл `TMessagesProj/config/release.keystore` **не включён в git**. Создайте его
+локально перед сборкой:
 
 ```bash
-keytool -genkeypair -v -keystore my.keystore -alias mykey \
-        -keyalg RSA -keysize 2048 -validity 10000
+keytool -genkeypair -v -keystore TMessagesProj/config/release.keystore \
+        -alias androidkey -keyalg RSA -keysize 2048 -validity 10000 \
+        -storepass android -keypass android -dname "CN=Android Developer"
 ```
 
-и пропишите в `gradle.properties`:
+Alias и пароли можно переопределить в `gradle.properties`:
 
 ```properties
 RELEASE_KEY_PASSWORD=...
-RELEASE_KEY_ALIAS=mykey
+RELEASE_KEY_ALIAS=...
 RELEASE_STORE_PASSWORD=...
 ```
 
-> Обратите внимание: **все** buildType (`debug`, `standalone`, `release`) в этом
-> проекте подписываются одним и тем же `config/release.keystore`
-> (`TMessagesProj_App/build.gradle` → `signingConfigs`). Пока вы не замените файл,
-> все ваши сборки будут подписаны ключом, который лежит в открытом репозитории.
+> **Все** buildType (`debug`, `standalone`, `release`) используют один и тот же
+> `config/release.keystore` (`TMessagesProj_App/build.gradle` → `signingConfigs`).
+> Не публикуйте свой release-ключ и не коммитьте его в репозиторий.
 
 ### 3. Firebase (`google-services.json`)
 
-`TMessagesProj/google-services.json` содержит проект **Telegram** (`tmessages2`)
-и регистрации пакетов `org.minegram.messenger*`. Секретов в нём нет, для сборки
-можно оставить как есть. Для собственного релиза заведите свой проект на
-<https://console.firebase.google.com/> и замените файл.
+`TMessagesProj/google-services.json` содержит публичные идентификаторы проекта
+**Telegram** (`tmessages2`) и регистрации пакетов `org.minegram.messenger*`.
+Для сборки можно оставить как есть. Для собственного релиза заведите свой проект
+на <https://console.firebase.google.com/> и замените файл.
 
 ### 4. Ключ погоды (опционально)
 
@@ -234,7 +235,8 @@ BuildType:
 
 ### Сборка в Docker
 
-`Dockerfile` собирает сразу все пять артефактов. Требуется установленный Docker:
+`Dockerfile` собирает основные релизные артефакты (APK, AAB, standalone и Huawei).
+Требуется установленный Docker:
 
 ```bash
 docker build -t divegram .
@@ -244,13 +246,15 @@ docker run --rm -v "$PWD:/home/source" divegram
 Результаты появятся в `TMessagesProj/build/outputs/apk/` и
 `TMessagesProj/build/outputs/bundle/`.
 
-### Вспомогательные скрипты в корне
+### Вспомогательные файлы
 
 | Файл | Что делает |
 |---|---|
 | `apkfrombundle.py` | достаёт `.apk` из AAB |
 | `apkdiff.py` | сравнивает два APK по содержимому |
-| `Dockerfile` | контейнерная сборка всех вариантов |
+| `tools/patch_mlkit_minSdk.sh` | правит `minSdk` в ML Kit AAR |
+| `docs/DGT_THEMES.md` | формат DGT-тем и правила оформления |
+| `Dockerfile` | контейнерная сборка релизных вариантов |
 
 ---
 
@@ -296,7 +300,9 @@ docker run --rm -v "$PWD:/home/source" divegram
 | Скрыть папку «Все чаты» | Убирает дефолтную вкладку из списка чатов |
 | Скрыть «Контакты» внизу | Прячет нижнюю кнопку контактов |
 | Кружок на заднюю камеру | Обрезка превью в круг |
-| Боковое меню | Альтернативное боковое меню вместо нижнего. Содержимое опущено на 72 dp, чтобы не наезжать на системный статус-бар |
+| Боковое меню | Альтернативное боковое меню вместо нижнего; панель, текст, иконки, аккаунты и разделители автоматически перекрашиваются под текущую тему Telegram. Содержимое опущено на 72 dp, чтобы не наезжать на системный статус-бар |
+| iOS Design | Jelly-анимация аватарок в списке чатов, шапке и профиле; форма карточек и аватарок в стиле iOS; отключаемая оптимизация blur/анимаций |
+| Тема чата | Индивидуальная локальная тема для каждого диалога без boost-проверки; обои и оформление хранятся только на устройстве |
 
 ### Функции
 
@@ -317,6 +323,13 @@ docker run --rm -v "$PWD:/home/source" divegram
 | Звуковой кодек | По умолчанию / AAC / LDAC — см. [ограничения](#ограничения-и-честные-заметки) |
 | Качество записи голосовых | Максимум / 64 / 32 / 16 кбит/с (Opus) |
 | Показать битрейт аудиофайла | Битрейт трека в обоих плеерах: внизу рядом с длительностью, вверху — левее кнопки скорости (например `256 kbps`) |
+| Плейлисты | Очередь воспроизведения, стабильные ID треков, long-press удаление и подсветка текущего трека |
+| Эквалайзер | 5-полосный PCM-эквалайзер с preamp и пресетами |
+| Отмена отправки медиа | Локальные неотправленные сообщения удаляются сразу, без ожидания сервера |
+| Экспорт чата | Сохранение переписки в PDF с fallback при недоступности шрифтов |
+| Онлайн-подсмотр | Показ времени последнего визита и статуса «в сети» в списке чатов |
+| Бесконечные закрепы | Закреплённые чаты не ограничиваются лимитом Telegram |
+| Оптимизация | Отключает тяжёлые blur-эффекты и лишние анимации на слабых устройствах |
 
 ### Username Drope
 
@@ -401,17 +414,14 @@ Telegram) плюс отдельный `easter_egg` для состояния п�
 **Обход DPI** требует отдельной настройки и может нарушать правила
 использования Telegram API. Ответственность на пользователе.
 
-**В корне репозитория лежит файл `divegram` — 133 МБ.** Это готовый APK,
-закоммиченный по недосмотру, а не исходник. Стоит удалить, если не нужен.
-
 ---
 
 ## Отличия от upstream
 
-366 изменённых файлов относительно `DrKLO/Telegram` @ `f2908b1`.
+451 изменённый файл относительно `DrKLO/Telegram` `13.0.3` (`7183`).
 Основные по числу правок:
 
-- `SharedConfig.java` — все настройки форка (около 60 ключей)
+- `SharedConfig.java` — все настройки форка (около 80 ключей)
 - `ChatActivity.java`, `DialogsActivity.java`, `MainTabsActivity.java` — UI
 - `TLRPC.java`, `TL_update.java`, `TL_bots.java`, `TL_iv.java` — схема API
 - `VideoPlayer.java`, `MediaController.java`, `jni/audio.c` — плеер и запись
@@ -419,8 +429,9 @@ Telegram) плюс отдельный `easter_egg` для состояния п�
 - `LauncherIconController.java` + набор иконок — свои иконки приложения
 
 Новые классы: `DiveGramFeaturesActivity`, `MineGramSettingsActivity`,
-`DiveGramBadge`, `DiveGramStreak`, `DiveGramWeather`, `DiveGramNfts`,
-`DiveGramLocalGiftsActivity`, `AudioCodecs`, `LocalNftGiftsStore`, `GeminiApi`,
+`ClassicSideMenuView`, `DiveGramJelly`, `DiveGramBadge`, `DiveGramStreak`,
+`DiveGramWeather`, `DiveGramNfts`, `DiveGramLocalGiftsActivity`, `AudioCodecs`,
+`DiveGramEqualizerProcessor`, `LocalNftGiftsStore`, `GeminiApi`,
 `GoogleTranslate`, `TgWsProxy` (+ пакет `tgwsproxy/proxy/*`), `EmuDetector`,
 `BatteryOptimizationHelper`, `MarinOverlayView`, `LyricsAlbumEditorActivity`,
 `EphemeralMessagesHelper`, пакет `ui/UsernameDrope/*`.
@@ -428,7 +439,7 @@ Telegram) плюс отдельный `easter_egg` для состояния п�
 Полный список своих правок:
 
 ```bash
-git diff --stat f2908b1
+git diff --stat <upstream-коммит>
 ```
 
 Оригинальный README Telegram сохранён в
@@ -447,7 +458,9 @@ git diff --stat f2908b1
 | `TMessagesProj_AppHockeyApp` | сборка для HockeyApp |
 | `TMessagesProj_AppTests` | тесты |
 | `buildSrc` | кастомные gradle-задачи |
-| `third_party/` | `libvpx`, `dav1d`, `ffmpeg` — git-сабмодули |
+| `docs/` | документация по DGT-темам |
+| `tools/` | вспомогательные скрипты сборки |
+| `TMessagesProj/jni/third_party/` | нативные зависимости (`libvpx`, `dav1d`, `ffmpeg`, `tgcalls` и др.) — git-сабмодули |
 
 Ключевые файлы форка:
 
@@ -455,6 +468,9 @@ git diff --stat f2908b1
 |---|---|
 | `ui/DiveGramFeaturesActivity.java` | экран всех настроек, 4 вкладки |
 | `ui/MineGramSettingsActivity.java` | корневой экран DiveGram |
+| `ui/ClassicSideMenuView.java` | классическое боковое меню с оформлением под тему Telegram |
+| `ui/DiveGramDesignActivity.java` | экран оформления и iOS-переключателей |
+| `ui/DiveGramPlaylistActivity.java` | управление плейлистом |
 | `messenger/SharedConfig.java` | хранение и чтение всех настроек |
 | `messenger/AudioCodecs.java` | звуковой кодек и битрейт записи |
 | `messenger/DiveGramBadge.java` | бейджи у аватарок |
@@ -462,7 +478,10 @@ git diff --stat f2908b1
 | `messenger/DiveGramWeather.java` | погода (OpenWeatherMap) |
 | `messenger/GeminiApi.java` | ИИ-анализ чата (OpenRouter) |
 | `messenger/TgWsProxy.java` | локальный прокси для обхода DPI |
-| `ui/Components/FragmentContextView.java` | битрейд в верхней панели плеера |
+| `ui/Components/FragmentContextView.java` | битрейт в верхней панели плеера |
+| `ui/Components/DiveGramJelly.java` | jelly-анимация аватарок |
+| `ui/Components/DiveGramPlaylist.java` | очередь воспроизведения |
+| `messenger/DiveGramEqualizerProcessor.java` | PCM-эквалайзер |
 | `ui/UsernameDrope/*` | обмен контактами через NFC |
 | `messenger/BuildVars.java` | `api_id`, `api_hash`, ссылки на приложение |
 

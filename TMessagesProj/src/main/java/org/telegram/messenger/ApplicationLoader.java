@@ -366,15 +366,9 @@ public class ApplicationLoader extends Application {
         LauncherIconController.tryFixLauncherIconIfNeeded();
         ProxyRotationController.init();
 
-
-        DiveGramBadge.fetch();
-        DiveGramStreak.init();
-        DiveGramNfts.fetch();
-
         //if (BuildConfig.DEBUG_PRIVATE_VERSION) {
         //    Choreographer60FpsContent.getInstance().addFrameCallback(debugEverySecondChecks, 1);
         //}
-
     }
 
     private final Runnable debugEverySecondChecks = () -> AndroidUtilities.runOnUIThread(() -> {

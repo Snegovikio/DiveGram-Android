@@ -65,4 +65,13 @@
 
     <item name="tag_view_on_post_draw_state" type="id" />
     <item name="tag_view_on_post_draw_root_state" type="id" />
+    <item type="id" name="dgt_class" />
+    <item type="id" name="dgt_id" />
+    <item type="id" name="dgt_shape" />
+    <item type="id" name="dgt_shadow" />
+    <item type="id" name="dgt_filter" />
+    <item type="id" name="dgt_outline" />
+    <item type="id" name="md3_count" />
+    <item type="id" name="md3_arrow" />
+    <item type="id" name="md3_switch" />
 </resources>

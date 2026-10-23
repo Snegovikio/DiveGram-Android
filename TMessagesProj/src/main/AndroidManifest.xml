@@ -100,7 +100,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
-    <uses-sdk tools:overrideLibrary="com.google.mlkit.vision.segmentation.subject"/>
+    <uses-sdk tools:overrideLibrary="androidx.media3.common androidx.media3.exoplayer androidx.media3.exoplayer.dash androidx.media3.exoplayer.hls androidx.media3.exoplayer.rtsp androidx.media3.exoplayer.smoothstreaming androidx.media3.exoplayer.ima androidx.media3.exoplayer.workmanager androidx.media3.ui androidx.media3.ui.leanback androidx.media3.database androidx.media3.datasource androidx.media3.datasource.cronet androidx.media3.datasource.okhttp androidx.media3.datasource.rtmp androidx.media3.decoder androidx.media3.decoder.av1 androidx.media3.decoder.ffmpeg androidx.media3.decoder.flac androidx.media3.decoder.iamf androidx.media3.decoder.midi androidx.media3.decoder.mpegh androidx.media3.decoder.opus androidx.media3.decoder.vp9 androidx.media3.effect androidx.media3.extractor androidx.media3.muxer androidx.media3.session androidx.media3.container androidx.media3.transformer com.google.mlkit.vision.segmentation.subject com.google.android.gms.cast.framework com.google.android.gms.cast com.google.android.gms.common com.google.android.gms.base com.google.android.gms.measurement_base androidx.credentials.play.services.auth"/>
 
     <queries>
         <package android:name="com.google.android.apps.maps"/>
@@ -113,6 +113,8 @@
     <application
         android:name="org.telegram.messenger.ApplicationLoader"
         android:label="@string/AppName"
+        android:icon="@mipmap/icon_violet_launcher"
+        android:roundIcon="@mipmap/icon_violet_launcher_round"
         android:allowBackup="true"
         android:restoreAnyVersion="true"
         android:backupAgent=".BackupAgent"
@@ -131,7 +133,7 @@
         <!-- usesCleartextTraffic for browser supporting opening http:// links -->
 
         <activity-alias
-            android:enabled="true"
+            android:enabled="false"
             android:name="org.telegram.messenger.DefaultIcon"
             android:targetActivity="org.telegram.ui.LaunchActivity"
             android:exported="true">
@@ -161,7 +163,7 @@
         </activity-alias>
 
         <activity-alias
-            android:enabled="false"
+            android:enabled="true"
             android:name="org.telegram.messenger.VioletIcon"
             android:targetActivity="org.telegram.ui.LaunchActivity"
             android:icon="@mipmap/icon_violet_launcher"
@@ -278,10 +280,30 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:scheme="tg" />
             </intent-filter>
+            <intent-filter android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round" android:priority="1">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="ton" android:host="transfer" android:pathPrefix="/" />
+            </intent-filter>
+            <intent-filter android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round" android:priority="1">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="tc" />
+            </intent-filter>
             <intent-filter>
                 <action android:name="org.telegram.messenger.CREATE_STICKER_PACK"/>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <data android:mimeType="*/*"/>
+            </intent-filter>
+            <!-- Темы DiveGram (.dgt) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" android:pathPattern=".*\\.dgt" />
+                <data android:scheme="file" android:pathPattern=".*\\.dgt" />
             </intent-filter>
             <meta-data android:name="android.service.chooser.chooser_target_service" android:value="androidx.sharetarget.ChooserTargetServiceCompat" />
             <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />

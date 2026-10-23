@@ -124,6 +124,7 @@ import org.telegram.ui.Components.ScrimOptions;
 import org.telegram.ui.Components.blur3.drawable.color.impl.BlurredBackgroundProviderImpl;
 import org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceBitmap;
 import org.telegram.ui.Components.blur3.utils.Blur3Utils;
+import org.telegram.ui.Wallet.WalletSendEnterAmount;
 import org.telegram.ui.recyclerview.LinearSmoothScrollerCustom;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewpager.widget.PagerAdapter;
@@ -141,6 +142,7 @@ import org.telegram.messenger.ChatObject;
 import org.telegram.messenger.ChatThemeController;
 import org.telegram.messenger.ContactsController;
 import org.telegram.messenger.DialogObject;
+import org.telegram.messenger.DiveGramOnlinePeek;
 import org.telegram.messenger.DocumentObject;
 import org.telegram.messenger.Emoji;
 import org.telegram.messenger.FileLoader;
@@ -215,6 +217,8 @@ import org.telegram.ui.Cells.TextDetailCell;
 import org.telegram.ui.Cells.TextInfoPrivacyCell;
 import org.telegram.ui.Cells.UserCell;
 import org.telegram.ui.Components.AlertsCreator;
+import org.telegram.ui.Components.DiveGramAvatarShapes;
+import org.telegram.ui.Components.DiveGramJelly;
 import org.telegram.ui.Components.AnimatedColor;
 import org.telegram.ui.Components.AnimatedEmojiDrawable;
 import org.telegram.ui.Components.AnimatedEmojiSpan;
@@ -320,6 +324,7 @@ import org.telegram.ui.bots.BotLocation;
 import org.telegram.ui.bots.BotWebViewAttachedSheet;
 import org.telegram.ui.bots.ChannelAffiliateProgramsFragment;
 import org.telegram.ui.bots.SetupEmojiStatusSheet;
+import org.telegram.ui.Wallet.WalletActivity;
 import org.telegram.ui.community.CommunitySheet;
 
 import java.io.BufferedInputStream;
@@ -599,11 +604,14 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
     private final static int edit_profile = 41;
     private final static int copy_link_profile = 42;
     private final static int set_username = 43;
+    private final static int username_drope = 49;
+    private final static int top_up_wallet = 50;
+    private final static int avatar_shape = 51;
     private final static int bot_privacy = 44;
     private final static int delete_group = 45;
     private final static int enable_no_forwards = 46;
     private final static int disable_no_forwards = 47;
-    private final static int username_drope = 48;
+    private final static int send_money = 48;
 
     private Rect rect = new Rect();
 
@@ -906,6 +914,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         private final RectF rect = new RectF();
         private final Paint placeholderPaint;
         public boolean drawAvatar = true;
+        public boolean useCustomShape;
         public float bounceScale = 1f;
 
         private float crossfadeProgress;
@@ -1078,7 +1087,11 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             if (r > 0) {
                 clipPath.rewind();
                 AndroidUtilities.rectTmp.set(inset, inset, thisWidth - inset, thisHeight - inset);
-                clipPath.addRoundRect(AndroidUtilities.rectTmp, r, r, Path.Direction.CW);
+                if (useCustomShape && SharedConfig.dgAvatarShape != 0) {
+                    DiveGramAvatarShapes.buildPath(clipPath, SharedConfig.dgAvatarShape, AndroidUtilities.rectTmp);
+                } else {
+                    clipPath.addRoundRect(AndroidUtilities.rectTmp, r, r, Path.Direction.CW);
+                }
                 canvas.clipPath(clipPath);
             }
 
@@ -2170,6 +2183,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             getNotificationCenter().addObserver(this, NotificationCenter.botInfoDidLoad);
             getNotificationCenter().addObserver(this, NotificationCenter.userInfoDidLoad);
             getNotificationCenter().addObserver(this, NotificationCenter.privacyRulesUpdated);
+            getNotificationCenter().addObserver(this, NotificationCenter.diveGramAvatarShapeChanged);
             NotificationCenter.getGlobalInstance().addObserver(this, NotificationCenter.reloadInterface);
 
             userBlocked = getMessagesController().blockePeers.indexOfKey(userId) >= 0;
@@ -2474,6 +2488,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             getNotificationCenter().removeObserver(this, NotificationCenter.botInfoDidLoad);
             getNotificationCenter().removeObserver(this, NotificationCenter.userInfoDidLoad);
             getNotificationCenter().removeObserver(this, NotificationCenter.privacyRulesUpdated);
+            getNotificationCenter().removeObserver(this, NotificationCenter.diveGramAvatarShapeChanged);
             NotificationCenter.getGlobalInstance().removeObserver(this, NotificationCenter.reloadInterface);
             getMessagesController().cancelLoadFullUser(userId);
         } else if (chatId != 0) {
@@ -2832,6 +2847,8 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     openDiscussion();
                 } else if (id == gift_premium) {
                     onGiftPermiumClicked();
+                } else if (id == send_money) {
+                    presentFragment(new WalletSendEnterAmount(getMessagesController().getUser(userId)).setAllowOpenChat());
                 } else if (id == channel_stories) {
                     Bundle args = new Bundle();
                     args.putInt("type", MediaActivity.TYPE_ARCHIVED_CHANNEL_STORIES);
@@ -2895,6 +2912,10 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     presentFragment(new ChangeUsernameActivity());
                 } else if (id == username_drope) {
                     presentFragment(new UsernameDropeActivity());
+                } else if (id == top_up_wallet) {
+                    presentFragment(new WalletActivity());
+                } else if (id == avatar_shape) {
+                    presentFragment(new DiveGramAvatarShapeActivity());
                 } else if (id == logout) {
                     presentFragment(new LogoutActivity());
                 } else if (id == set_as_main) {
@@ -5387,7 +5408,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         avatarImage.setRoundRadiusForExpand(getSmallAvatarRoundRadius());
         avatarImage.setPivotX(0);
         avatarImage.setPivotY(0);
+        avatarImage.useCustomShape = SharedConfig.dgAvatarShape != 0;
         avatarContainer.addView(avatarImage, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+        DiveGramJelly.attach(avatarImage);
         avatarImage.setOnClickListener(v -> {
             if (avatarBig != null) {
                 return;
@@ -9091,6 +9114,13 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
     @SuppressWarnings("unchecked")
     @Override
     public void didReceivedNotification(int id, int account, final Object... args) {
+        if (id == NotificationCenter.diveGramAvatarShapeChanged) {
+            if (avatarImage != null) {
+                avatarImage.useCustomShape = SharedConfig.dgAvatarShape != 0;
+                avatarImage.invalidate();
+            }
+            return;
+        }
         if (id == NotificationCenter.uploadStoryEnd || id == NotificationCenter.chatWasBoostedByUser) {
             checkCanSendStoryForPosting();
         } else if (id == NotificationCenter.updateInterfaces) {
@@ -11423,6 +11453,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             CharSequence newString = UserObject.getUserName(user);
             String newString2;
             boolean hiddenStatusButton = false;
+            boolean dgPeekButton = false;
             if (user.id == getUserConfig().getClientUserId()) {
                 if (UserObject.hasFallbackPhoto(getUserInfo())) {
                     newString2 = "";
@@ -11448,12 +11479,17 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 if (user.bot_active_users != 0) {
                     newString2 = LocaleController.formatPluralStringComma("BotUsers", user.bot_active_users, ',');
                 } else {
-                    newString2 = LocaleController.getString(R.string.Bot);
+                    newString2 = UserObject.getBotStatus(user);
                 }
             } else {
                 isOnline[0] = false;
                 newString2 = LocaleController.formatUserStatus(currentAccount, user, isOnline, shortStatus ? new boolean[1] : null);
-                hiddenStatusButton = user != null && !isOnline[0] && !getUserConfig().isPremium() && user.status != null && (user.status instanceof TLRPC.TL_userStatusRecently || user.status instanceof TLRPC.TL_userStatusLastMonth || user.status instanceof TLRPC.TL_userStatusLastWeek) && user.status.by_me;
+                final boolean statusHiddenByMe = user.status != null && (user.status instanceof TLRPC.TL_userStatusRecently || user.status instanceof TLRPC.TL_userStatusLastMonth || user.status instanceof TLRPC.TL_userStatusLastWeek) && user.status.by_me;
+                hiddenStatusButton = user != null && !isOnline[0] && !getUserConfig().isPremium() && statusHiddenByMe;
+                dgPeekButton = SharedConfig.dgOnlinePeekEnabled && user != null && !isOnline[0] && !isBot && statusHiddenByMe;
+                if (dgPeekButton) {
+                    hiddenStatusButton = true;
+                }
                 if (onlineTextView[1] != null && !mediaHeaderVisible) {
                     int key = isOnline[0] && peerColor == null ? Theme.key_profile_status : Theme.key_actionBarDefaultSubtitle;
                     onlineTextView[1].setTag(key);
@@ -11462,6 +11498,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     }
                 }
             }
+            final boolean dgPeekButtonFinal = dgPeekButton;
             hasCustomPhoto = user.photo != null && user.photo.personal;
             try {
                 newString = Emoji.replaceEmoji(newString, nameTextView[1].getPaint().getFontMetricsInt(), false);
@@ -11504,11 +11541,18 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 }
                 onlineTextView[a].setDrawablePadding(dp(9));
                 onlineTextView[a].setRightDrawableInside(true);
+                if (a == 1 && hiddenStatusButton) {
+                    getShowStatusButton().textDrawable.setText(dgPeekButtonFinal ? "Подсмотреть" : LocaleController.getString(R.string.StatusHiddenShow), false);
+                }
                 onlineTextView[a].setRightDrawable(a == 1 && hiddenStatusButton ? getShowStatusButton() : null);
                 onlineTextView[a].setRightDrawableOnClick(a == 1 && hiddenStatusButton ? v -> {
-                    MessagePrivateSeenView.showSheet(getContext(), currentAccount, getDialogId(), true, null, () -> {
-                        getMessagesController().reloadUser(getDialogId());
-                    }, resourcesProvider);
+                    if (dgPeekButtonFinal) {
+                        dgConfirmOnlinePeek();
+                    } else {
+                        MessagePrivateSeenView.showSheet(getContext(), currentAccount, getDialogId(), true, null, () -> {
+                            getMessagesController().reloadUser(getDialogId());
+                        }, resourcesProvider);
+                    }
                 } : null);
                 Drawable leftIcon = currentEncryptedChat != null ? getLockIconDrawable() : null;
                 boolean rightIconIsPremium = false, rightIconIsStatus = false;
@@ -12191,6 +12235,8 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     setUsernameItem = otherItem.addSubItem(set_username, R.drawable.menu_username_change, getString(R.string.ProfileUsernameEdit));
                     linkItem = otherItem.addSubItem(copy_link_profile, R.drawable.msg_link2, getString(R.string.ProfileCopyLink));
                     otherItem.addSubItem(username_drope, R.drawable.msg_addcontact, getString(R.string.UsernameDrope));
+                    otherItem.addSubItem(top_up_wallet, R.drawable.settings_wallet, "Пополнить кошелёк");
+                    otherItem.addSubItem(avatar_shape, R.drawable.msg_photo_settings, "Изменить форму аватарки");
                     updateItemsUsername();
                 }
                 selfUser = true;
@@ -12256,6 +12302,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                         StarsController.getInstance(currentAccount).loadStarGifts();
                         otherItem.addSubItem(gift_premium, R.drawable.msg_gift_premium, LocaleController.getString(R.string.ProfileSendAGift));
                         giftAction = true;
+                    }
+                    if (getMessagesController().config.walletAvailable.get() && !MessagesController.isSupportUser(user) && !UserObject.isService(user.id)) {
+                        otherItem.addSubItem(send_money, R.drawable.ic_gram, LocaleController.getString(R.string.WalletSendMoney));
                     }
                     otherItem.addSubItem(start_secret_chat, R.drawable.msg_secret, LocaleController.getString(R.string.StartEncryptedChat));
                     otherItem.setSubItemShown(start_secret_chat, DialogObject.isEmpty(getMessagesController().isUserContactBlocked(userId)));
@@ -14063,7 +14112,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     if (position == infoSectionRow) {
                         final long did = getDialogId();
                         TLObject obj = getMessagesController().getUserOrChat(did);
-                        TL_bots.botVerification bot_verification = userInfo != null ? userInfo.bot_verification : chatInfo != null ? chatInfo.bot_verification : null;
+                        TL_bots.BotVerification bot_verification = userInfo != null ? userInfo.bot_verification : chatInfo != null ? chatInfo.bot_verification : null;
                         Long bot_manager_id = userInfo != null && TLObject.hasFlag(userInfo.flags2, TLObject.FLAG_25) ? userInfo.bot_manager_id : null;
                         if (botAppRow >= 0 || bot_verification != null || bot_manager_id != null) {
                             cell.setFixedSize(0);
@@ -14083,7 +14132,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                                 sb.append("x");
                                 sb.setSpan(new AnimatedEmojiSpan(bot_verification.icon, cell.getTextView().getPaint().getFontMetricsInt()), sb.length() - 1, sb.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
                                 sb.append(" ");
-                                SpannableString description = new SpannableString(bot_verification.description);
+                                SpannableString description = new SpannableString(MessageObject.formatTextWithEntities(bot_verification.description));
                                 try {
                                     AndroidUtilities.addLinksSafe(description, Linkify.WEB_URLS, false, false);
                                     URLSpan[] spans = description.getSpans(0, description.length(), URLSpan.class);
@@ -16139,6 +16188,35 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
     }
 
     private ShowDrawable showStatusButton;
+
+    private void dgConfirmOnlinePeek() {
+        if (getParentActivity() == null) {
+            return;
+        }
+        if (DiveGramOnlinePeek.isRunning()) {
+            BulletinFactory.of(this).createSimpleBulletin(R.drawable.msg_info, "Запрос уже выполняется").show();
+            return;
+        }
+        AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity(), resourcesProvider);
+        builder.setTitle("Подсмотреть онлайн");
+        builder.setMessage("На несколько секунд ваш онлайн станет виден всем. Затем настройка приватности вернётся автоматически.\n\nПродолжить?");
+        builder.setPositiveButton("Подсмотреть", (dialog, which) -> dgPeekOnline());
+        builder.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
+        showDialog(builder.create());
+    }
+
+    private void dgPeekOnline() {
+        if (getParentActivity() == null) {
+            return;
+        }
+        final long targetId = getDialogId();
+        DiveGramOnlinePeek.peek(currentAccount, targetId, (text, exact) -> {
+            if (getParentActivity() == null) {
+                return;
+            }
+            BulletinFactory.of(this).createSimpleBulletin(exact ? R.drawable.msg_online : R.drawable.msg_info, text).show();
+        });
+    }
 
     public ShowDrawable getShowStatusButton() {
         if (showStatusButton == null) {

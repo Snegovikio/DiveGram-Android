@@ -34,6 +34,7 @@ import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ApplicationLoader;
 import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.R;
+import org.telegram.messenger.SharedConfig;
 import org.telegram.messenger.browser.Browser;
 import org.telegram.ui.ActionBar.ActionBar;
 import org.telegram.ui.ActionBar.BaseFragment;
@@ -135,6 +136,7 @@ public class MineGramSettingsActivity extends BaseFragment {
 
         TextView linksHeaderView = new TextView(context);
         linksHeaderView.setText("Ссылки");
+        linksHeaderView.setPadding(AndroidUtilities.dp(24), 0, AndroidUtilities.dp(24), 0);
         linksHeaderView.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText3));
         linksHeaderView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
         linksHeaderView.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
@@ -278,14 +280,23 @@ public class MineGramSettingsActivity extends BaseFragment {
         return rounded;
     }
 
+    @Override
+    public void onResume() {
+        super.onResume();
+    }
+
     private View createRoundedCard(Context context, View content) {
         FrameLayout wrapper = new FrameLayout(context);
         GradientDrawable background = new GradientDrawable();
         background.setColor(Theme.getColor(Theme.key_windowBackgroundWhite));
-        background.setCornerRadius(AndroidUtilities.dp(12));
+        background.setCornerRadius(AndroidUtilities.dp(16));
         wrapper.setBackground(background);
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT);
-        params.setMargins(0, 0, 0, AndroidUtilities.dp(8));
+        if (SharedConfig.dgMd3Master && SharedConfig.dgMd3ListItems) {
+            params.setMargins(AndroidUtilities.dp(12), 0, AndroidUtilities.dp(12), 0);
+        } else {
+            params.setMargins(0, 0, 0, AndroidUtilities.dp(8));
+        }
         wrapper.setLayoutParams(params);
         wrapper.addView(content, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
         return wrapper;

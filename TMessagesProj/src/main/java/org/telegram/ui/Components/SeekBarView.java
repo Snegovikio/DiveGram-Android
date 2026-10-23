@@ -40,6 +40,7 @@ import androidx.core.graphics.ColorUtils;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.Emoji;
 import org.telegram.messenger.FileLog;
+import org.telegram.messenger.SharedConfig;
 import org.telegram.messenger.MessageObject;
 import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.Utilities;
@@ -238,9 +239,15 @@ public class SeekBarView extends FrameLayout {
         if (ev.getAction() == MotionEvent.ACTION_DOWN) {
             sx = ev.getX();
             sy = ev.getY();
+            if (getParent() != null) {
+                getParent().requestDisallowInterceptTouchEvent(true);
+            }
             return true;
         } else if (ev.getAction() == MotionEvent.ACTION_UP || ev.getAction() == MotionEvent.ACTION_CANCEL) {
             captured = false;
+            if (getParent() != null) {
+                getParent().requestDisallowInterceptTouchEvent(false);
+            }
             if (ev.getAction() == MotionEvent.ACTION_UP) {
                 final ViewConfiguration vc = ViewConfiguration.get(getContext());
                 if (Math.abs(ev.getY() - sy) < vc.getScaledTouchSlop()) {
@@ -370,7 +377,7 @@ public class SeekBarView extends FrameLayout {
     }
 
     public void setProgress(float progress) {
-        setProgress(progress, false);
+        setProgress(progress, SharedConfig.dgMd3Master && SharedConfig.dgMd3Sliders);
     }
 
     public void setProgress(float progress, boolean animated) {
@@ -450,12 +457,14 @@ public class SeekBarView extends FrameLayout {
             float step = (getMeasuredWidth() - selectorWidth) / ((float) delegate.getStepsCount() - 1f);
             thumbX = (int) (Math.round((thumbX) / step) * step);
         }
+        final boolean md3 = SharedConfig.dgMd3Master && SharedConfig.dgMd3Sliders;
         int y = (getMeasuredHeight() - thumbSize) / 2;
         innerPaint1.setColor(getThemedColor(Theme.key_player_progressBackground));
 
         float centerY = getMeasuredHeight() / 2f;
         float left = selectorWidth / 2f, right = getMeasuredWidth() - selectorWidth / 2;
-        float top = centerY - AndroidUtilities.dp(lineWidthDp) / 2f, bottom = centerY + AndroidUtilities.dp(lineWidthDp) / 2f;
+        final float lineHeight = md3 ? AndroidUtilities.dp(6) : AndroidUtilities.dp(lineWidthDp);
+        float top = centerY - lineHeight / 2f, bottom = centerY + lineHeight / 2f;
 
         rect.set(left, top, right, bottom);
         drawProgressBar(canvas, rect, innerPaint1);
@@ -493,7 +502,7 @@ public class SeekBarView extends FrameLayout {
             hoverDrawable.draw(canvas);
         }
         boolean needInvalidate = false;
-        int newRad = AndroidUtilities.dp(pressed ? 8 : 6);
+        int newRad = md3 ? AndroidUtilities.dp(pressed ? 11 : 9) : AndroidUtilities.dp(pressed ? 8 : 6);
         long newUpdateTime = SystemClock.elapsedRealtime();
         long dt = newUpdateTime - lastUpdateTime;
         if (dt > 18) {
@@ -661,7 +670,7 @@ public class SeekBarView extends FrameLayout {
     }
 
     private void drawProgressBar(Canvas canvas, RectF rect, Paint paint) {
-        float radius = AndroidUtilities.dp(2);
+        float radius = (SharedConfig.dgMd3Master && SharedConfig.dgMd3Sliders) ? (rect.bottom - rect.top) / 2f : AndroidUtilities.dp(2);
         if (timestamps == null || timestamps.isEmpty()) {
             canvas.drawRoundRect(rect, radius, radius, paint);
         } else {

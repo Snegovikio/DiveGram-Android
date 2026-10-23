@@ -23,8 +23,6 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
-import androidx.core.graphics.ColorUtils;
-
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.MessagesController;
@@ -57,6 +55,7 @@ public class ClassicSideMenuView extends FrameLayout {
     private int insetLeft;
     private int insetTop;
     private static final int CONTENT_TOP_EXTRA_PADDING = 72;
+    private int appliedThemeHash;
 
     public ClassicSideMenuView(MainTabsActivity activity) {
         super(activity.getContext());
@@ -69,8 +68,7 @@ public class ClassicSideMenuView extends FrameLayout {
         drawerPanel = new LinearLayout(getContext());
         drawerPanel.setOrientation(LinearLayout.VERTICAL);
         applyTopPadding();
-        drawerPanel.setBackground(Theme.createRoundRectDrawable(0, AndroidUtilities.dp(16), AndroidUtilities.dp(16), 0, ColorUtils.blendARGB(Theme.getColor(Theme.key_windowBackgroundWhite), 0xFFFFFFFF, 0.07f)));
-        drawerPanel.addView(createContent());
+        applyInnerContent();
 
         addView(scrimView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
 
@@ -98,6 +96,39 @@ public class ClassicSideMenuView extends FrameLayout {
 
     private void applyTopPadding() {
         drawerPanel.setPadding(insetLeft, insetTop + AndroidUtilities.dp(25 + CONTENT_TOP_EXTRA_PADDING), 0, 0);
+    }
+
+    /** Перекрашивает панель и все строки под текущую тему Telegram (день/ночь, акцент и т.п.). */
+    public void applyTheme() {
+        if (drawerPanel == null) {
+            return;
+        }
+        int hash = themeHash();
+        if (hash == appliedThemeHash && drawerPanel.getChildCount() > 0) {
+            return;
+        }
+        appliedThemeHash = hash;
+        applyInnerContent();
+    }
+
+    private int themeHash() {
+        return Theme.getColor(Theme.key_windowBackgroundWhite) * 31 * 31 * 31 * 31 * 31
+                + Theme.getColor(Theme.key_windowBackgroundWhiteBlackText) * 31 * 31 * 31 * 31
+                + Theme.getColor(Theme.key_windowBackgroundWhiteGrayText) * 31 * 31 * 31
+                + Theme.getColor(Theme.key_listSelector) * 31 * 31
+                + Theme.getColor(Theme.key_windowBackgroundWhiteBlueText) * 31
+                + Theme.getColor(Theme.key_windowBackgroundWhiteBlueHeader);
+    }
+
+    private void applyInnerContent() {
+        int panelColor = Theme.getColor(Theme.key_windowBackgroundWhite);
+        drawerPanel.setBackground(Theme.createRoundRectDrawable(0, AndroidUtilities.dp(16), AndroidUtilities.dp(16), 0, panelColor));
+        drawerPanel.setElevation(AndroidUtilities.dp(12));
+        drawerPanel.setClipToOutline(false);
+        for (int i = drawerPanel.getChildCount() - 1; i >= 0; i--) {
+            drawerPanel.removeViewAt(i);
+        }
+        drawerPanel.addView(createContent());
     }
 
     public void setInsetTop(int top) {

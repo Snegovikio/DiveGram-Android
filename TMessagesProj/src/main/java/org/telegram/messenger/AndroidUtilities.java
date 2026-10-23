@@ -261,7 +261,9 @@ public class AndroidUtilities {
 
     public static Typeface bold() {
         if (mediumTypeface == null) {
-            if (SharedConfig.useSystemBoldFont && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            if (SharedConfig.dgUseSystemFont && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                mediumTypeface = Typeface.create(null, 500, false);
+            } else if (SharedConfig.useSystemBoldFont && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 mediumTypeface = Typeface.create(null, 500, false);
             } else {
                 mediumTypeface = getTypeface(TYPEFACE_ROBOTO_MEDIUM);
@@ -1493,7 +1495,7 @@ public class AndroidUtilities {
             return 0;
         }
         try {
-            Bitmap b = Bitmaps.createScaledBitmap(bitmap, 1, 1, true);
+            Bitmap b = Bitmap.createScaledBitmap(bitmap, 1, 1, true);
             if (b != null) {
                 int bitmapColor = b.getPixel(0, 0);
                 if (bitmap != b) {
@@ -2391,6 +2393,9 @@ public class AndroidUtilities {
 
     public static Typeface getTypeface(String assetPath) {
         synchronized (typefaceCache) {
+            if (SharedConfig.dgUseSystemFont && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                return systemTypeface(assetPath);
+            }
             if (!typefaceCache.containsKey(assetPath)) {
                 try {
                     Typeface t;
@@ -2419,6 +2424,30 @@ public class AndroidUtilities {
             }
             return typefaceCache.get(assetPath);
         }
+    }
+
+    public static void clearTypefaceCache() {
+        synchronized (typefaceCache) {
+            typefaceCache.clear();
+        }
+    }
+
+    private static Typeface systemTypeface(String assetPath) {
+        int weight = 500;
+        boolean italic = false;
+        if (assetPath.contains("rextrabold")) {
+            weight = 800;
+        } else if (assetPath.contains("medium") || assetPath.contains("rbold") || assetPath.contains("mw_bold")) {
+            weight = 700;
+        }
+        if (assetPath.contains("italic")) {
+            italic = true;
+        }
+        if (assetPath.contains("mono")) {
+            return Typeface.MONOSPACE;
+        }
+        typefaceCache.put(assetPath, Typeface.create(null, weight, italic));
+        return typefaceCache.get(assetPath);
     }
 
     public static boolean isWaitingForSms() {
@@ -2887,6 +2916,16 @@ public class AndroidUtilities {
                 }
             }
         }
+    }
+
+    public static int getAccountInProduction() {
+        if (UserConfig.getInstance(UserConfig.selectedAccount).isClientActivated() && !ConnectionsManager.getInstance(UserConfig.selectedAccount).isTestBackend())
+            return UserConfig.selectedAccount;
+        for (int i = 0; i < UserConfig.MAX_ACCOUNT_COUNT; ++i) {
+            if (UserConfig.getInstance(i).isClientActivated() && !ConnectionsManager.getInstance(i).isTestBackend())
+                return i;
+        }
+        return UserConfig.selectedAccount;
     }
 
     public static float getPixelsInCM(float cm, boolean isX) {

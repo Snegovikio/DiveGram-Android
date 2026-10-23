@@ -102,8 +102,10 @@ import org.telegram.ui.PhotoViewer;
 import org.telegram.ui.Stars.StarsController;
 import org.telegram.ui.Stars.StarsIntroActivity;
 import org.telegram.ui.Stories.StoriesController;
+import org.telegram.ui.Wallet.GramWallet;
 import org.telegram.ui.community.CommunityUtils;
 import org.telegram.ui.web.BotWebViewContainer;
+import org.telegram.utils.code.highlight.CodeHighlighting;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -4953,6 +4955,24 @@ public class MessageObject {
                     } else {
                         messageText = formatString(isChannel ? R.string.BoostingGiveawayJustStarted : R.string.BoostingGiveawayJustStartedGroup, chat != null ? chat.title : "");
                     }
+                } else if (messageOwner.action instanceof TLRPC.TL_messageActionWalletTonConnectRequest) {
+                    final TLRPC.TL_messageActionWalletTonConnectRequest request = (TLRPC.TL_messageActionWalletTonConnectRequest) messageOwner.action;
+                    if (!TextUtils.isEmpty(request.dapp_name)) {
+                        messageText = formatString(
+                              request.declined ? R.string.WalletTonConnectRequestAppDeclined
+                            : request.accepted ? R.string.WalletTonConnectRequestAppProcessed
+                            : request.expires <= ConnectionsManager.getInstance(currentAccount).getCurrentTime()
+                            ? R.string.WalletTonConnectRequestAppExpired : R.string.WalletTonConnectRequestAppPending,
+                            request.dapp_name
+                        );
+                    } else {
+                        messageText = getString(
+                              request.declined ? R.string.WalletTonConnectRequestDeclined
+                            : request.accepted ? R.string.WalletTonConnectRequestProcessed
+                            : request.expires <= ConnectionsManager.getInstance(currentAccount).getCurrentTime()
+                            ? R.string.WalletTonConnectRequestExpired : R.string.WalletTonConnectRequestPending
+                        );
+                    }
                 } else if (messageOwner.action instanceof TLRPC.TL_messageActionBoostApply) {
                     TLRPC.Chat chat = messageOwner.peer_id != null && messageOwner.peer_id.channel_id != 0 ? getChat(chats, sChats, messageOwner.peer_id.channel_id) : null;
                     boolean isChannel = ChatObject.isChannelAndNotMegaGroup(chat);
@@ -5921,6 +5941,23 @@ public class MessageObject {
                         messageText = isOut() ? getString(R.string.SharingOfferDisableHeaderShortYou) : replaceTags(formatString(R.string.SharingOfferDisableHeaderShortOther, userName));
                     } else {
                         messageText = isOut() ? getString(R.string.SharingOfferEnableHeaderShortYou) : replaceTags(formatString(R.string.SharingOfferEnableHeaderShortOther, userName));
+                    }
+                } else if (messageOwner.action instanceof TLRPC.TL_messageActionGramTransfer) {
+                    final TLRPC.TL_messageActionGramTransfer action = (TLRPC.TL_messageActionGramTransfer) messageOwner.action;
+                    final TLRPC.User user = getUser(users, sUsers, DialogObject.getPeerDialogId(messageOwner.peer_id));
+                    if (isOut()) {
+                        messageText = replaceWithLink(AndroidUtilities.replaceTags(LocaleController.formatString(R.string.WalletActionSentGrams, GramWallet.formatGramsWithUnit(action.amount))), "un1", user);
+                    } else if (UserObject.isService(DialogObject.getPeerDialogId(messageOwner.peer_id))) {
+                        messageText = AndroidUtilities.replaceTags(LocaleController.formatString(R.string.WalletActionReceivedGramsSomeone, GramWallet.formatGramsWithUnit(action.amount)));
+                    } else {
+                        messageText = replaceWithLink(AndroidUtilities.replaceTags(LocaleController.formatString(R.string.WalletActionReceivedGrams, GramWallet.formatGramsWithUnit(action.amount))), "un1", fromObject);
+                    }
+                    if (isOut()) {
+                        messageTextShort = AndroidUtilities.replaceTags(LocaleController.formatString(R.string.WalletActionSentGramsShort, GramWallet.formatGramsWithUnit(action.amount)));
+                    } else if (UserObject.isService(DialogObject.getPeerDialogId(messageOwner.peer_id))) {
+                        messageTextShort = AndroidUtilities.replaceTags(LocaleController.formatString(R.string.WalletActionReceivedGramsSomeone, GramWallet.formatGramsWithUnit(action.amount)));
+                    } else {
+                        messageTextShort = AndroidUtilities.replaceTags(LocaleController.formatString(R.string.WalletActionReceivedGrams, GramWallet.formatGramsWithUnit(action.amount)).replace("un1", "").trim());
                     }
                 }
             }
@@ -7265,13 +7302,16 @@ public class MessageObject {
     }
 
     public static CharSequence replaceWithLink(CharSequence source, String param, TLObject object) {
+        return replaceWithLink(source, param, object, false);
+    }
+    public static CharSequence replaceWithLink(CharSequence source, String param, TLObject object, boolean makeShort) {
         int start = TextUtils.indexOf(source, param);
         if (start >= 0) {
             CharSequence name;
             String id;
             TLObject spanObject = null;
             if (object instanceof TLRPC.User) {
-                name = UserObject.getUserName((TLRPC.User) object).replace('\n', ' ');
+                name = makeShort ? UserObject.getForcedFirstName((TLRPC.User) object).replace('\n', ' ') : UserObject.getUserName((TLRPC.User) object).replace('\n', ' ');
                 id = "" + ((TLRPC.User) object).id;
             } else if (object instanceof TLRPC.Chat) {
                 name = ((TLRPC.Chat) object).title.replace('\n', ' ');
@@ -7596,6 +7636,7 @@ public class MessageObject {
         ) {
             return;
         }
+        decodeDiveEmojis(messageOwner);
         String text = messageOwner.message;
         ArrayList<TLRPC.MessageEntity> entities = messageOwner.entities;
         boolean forceManualEntities = false;
@@ -7976,27 +8017,38 @@ public class MessageObject {
                 return messageOwner.translatedText != null ? messageOwner.translatedText.entities : null;
             }
         }
-        if (messageOwner.entities != null && !messageOwner.entities.isEmpty()) {
-            for (int i = 0; i < messageOwner.entities.size(); i++) {
-                final TLRPC.MessageEntity e = messageOwner.entities.get(i);
+        decodeDiveEmojis(messageOwner);
+        return messageOwner.entities;
+    }
+
+    public static void decodeDiveEmojis(TLRPC.Message message) {
+        if (message == null) {
+            return;
+        }
+        final String prefix = "dive://emoji/";
+        if (message.entities != null && !message.entities.isEmpty()) {
+            for (int i = 0; i < message.entities.size(); i++) {
+                final TLRPC.MessageEntity e = message.entities.get(i);
                 if (e instanceof TLRPC.TL_messageEntityUrl) {
                     final String url = ((TLRPC.TL_messageEntityUrl) e).url;
-                    if (url != null && url.startsWith("dive://emoji/")) {
+                    if (url != null && url.startsWith(prefix)) {
                         try {
-                            final long docId = Long.parseLong(url.substring("dive://emoji/".length()));
+                            final long docId = Long.parseLong(url.substring(prefix.length()));
                             final TLRPC.TL_messageEntityCustomEmoji ce = new TLRPC.TL_messageEntityCustomEmoji();
                             ce.offset = e.offset;
                             ce.length = e.length;
                             ce.document_id = docId;
-                            messageOwner.entities.set(i, ce);
+                            message.entities.set(i, ce);
                         } catch (Exception ignore) {}
                     }
                 }
             }
         }
-        if (messageOwner.message != null) {
-            final String prefix = "dive://emoji/";
-            final String txt = messageOwner.message;
+        String txt = message.message;
+        if (TextUtils.isEmpty(txt) && message.media != null && message.media.storyItem != null) {
+            txt = message.media.storyItem.caption;
+        }
+        if (txt != null) {
             int from = 0;
             int idx;
             while ((idx = txt.indexOf(prefix, from)) >= 0) {
@@ -8004,23 +8056,194 @@ public class MessageObject {
                 while (end < txt.length() && Character.isDigit(txt.charAt(end))) {
                     end++;
                 }
-                if (end > idx + prefix.length() && (messageOwner.entities == null || messageOwner.entities.isEmpty() || !isCoveredByCustomEmoji(messageOwner.entities, idx, end))) {
+                if (end > idx + prefix.length() && (message.entities == null || message.entities.isEmpty() || !isCoveredByCustomEmoji(message.entities, idx, end))) {
                     try {
                         final long docId = Long.parseLong(txt.substring(idx + prefix.length(), end));
-                        if (messageOwner.entities == null) {
-                            messageOwner.entities = new ArrayList<>();
+                        if (message.entities == null) {
+                            message.entities = new ArrayList<>();
                         }
                         final TLRPC.TL_messageEntityCustomEmoji ce = new TLRPC.TL_messageEntityCustomEmoji();
                         ce.offset = idx;
                         ce.length = end - idx;
                         ce.document_id = docId;
-                        messageOwner.entities.add(ce);
+                        message.entities.add(ce);
                     } catch (Exception ignore) {}
                 }
                 from = Math.max(end, idx + 1);
             }
         }
-        return messageOwner.entities;
+    }
+
+    public static void downgradePremiumEmojisToRegular(int currentAccount, CharSequence[] message, ArrayList<TLRPC.MessageEntity> entities) {
+        if (SharedConfig.localPremium || entities == null || entities.isEmpty() || message == null || message[0] == null) {
+            return;
+        }
+        SpannableStringBuilder sb = null;
+        for (int a = 0; a < entities.size(); a++) {
+            final TLRPC.MessageEntity entity = entities.get(a);
+            if (!(entity instanceof TLRPC.TL_messageEntityCustomEmoji)) {
+                continue;
+            }
+            final TLRPC.TL_messageEntityCustomEmoji customEmoji = (TLRPC.TL_messageEntityCustomEmoji) entity;
+            TLRPC.Document document = customEmoji.document;
+            if (document == null) {
+                document = AnimatedEmojiDrawable.findDocument(currentAccount, customEmoji.document_id);
+            }
+            String alt = null;
+            if (document != null) {
+                for (int i = 0; i < document.attributes.size(); i++) {
+                    final TLRPC.DocumentAttribute attr = document.attributes.get(i);
+                    if (attr instanceof TLRPC.TL_documentAttributeCustomEmoji && !TextUtils.isEmpty(((TLRPC.TL_documentAttributeCustomEmoji) attr).alt)) {
+                        alt = ((TLRPC.TL_documentAttributeCustomEmoji) attr).alt;
+                        break;
+                    }
+                }
+            }
+            if (TextUtils.isEmpty(alt)) {
+                continue;
+            }
+            final int start = customEmoji.offset;
+            final int emojiLen = customEmoji.length;
+            final int currentLen = sb != null ? sb.length() : message[0].length();
+            if (start < 0 || start + emojiLen > currentLen) {
+                continue;
+            }
+            try {
+                if (sb == null) {
+                    sb = new SpannableStringBuilder(message[0]);
+                }
+                sb.replace(start, start + emojiLen, alt);
+                final int delta = alt.length() - emojiLen;
+                entities.remove(a);
+                a--;
+                for (int j = a + 1; j < entities.size(); j++) {
+                    final TLRPC.MessageEntity other = entities.get(j);
+                    if (other.offset >= start + emojiLen) {
+                        other.offset += delta;
+                    }
+                }
+            } catch (Exception ignore) {
+            }
+        }
+        if (sb != null) {
+            message[0] = sb;
+        }
+    }
+
+    public static void transformPremiumEmojisToDiveLinks(int currentAccount, CharSequence[] message, ArrayList<TLRPC.MessageEntity> entities) {
+        if (entities == null || entities.isEmpty() || !SharedConfig.localPremium || message == null || message[0] == null) {
+            return;
+        }
+        SpannableStringBuilder sb = null;
+        for (int a = 0; a < entities.size(); a++) {
+            final TLRPC.MessageEntity entity = entities.get(a);
+            if (!(entity instanceof TLRPC.TL_messageEntityCustomEmoji)) {
+                continue;
+            }
+            final TLRPC.TL_messageEntityCustomEmoji customEmoji = (TLRPC.TL_messageEntityCustomEmoji) entity;
+            TLRPC.Document document = customEmoji.document;
+            if (document == null) {
+                document = AnimatedEmojiDrawable.findDocument(currentAccount, customEmoji.document_id);
+            }
+            if (document == null || isFreeEmoji(document)) {
+                continue;
+            }
+            final String link = "dive://emoji/" + customEmoji.document_id;
+            final int start = customEmoji.offset;
+            final int emojiLen = customEmoji.length;
+            final int currentLen = sb != null ? sb.length() : message[0].length();
+            if (start < 0 || start + emojiLen > currentLen) {
+                continue;
+            }
+            try {
+                if (sb == null) {
+                    sb = new SpannableStringBuilder(message[0]);
+                }
+                sb.replace(start, start + emojiLen, link);
+                final int delta = link.length() - emojiLen;
+                final TLRPC.TL_messageEntityUrl url = new TLRPC.TL_messageEntityUrl();
+                url.offset = start;
+                url.length = link.length();
+                url.url = link;
+                entities.set(a, url);
+                for (int j = a + 1; j < entities.size(); j++) {
+                    final TLRPC.MessageEntity other = entities.get(j);
+                    if (other.offset >= start + emojiLen) {
+                        other.offset += delta;
+                    }
+                }
+            } catch (Exception ignore) {
+            }
+        }
+        if (sb != null) {
+            message[0] = sb;
+        }
+    }
+
+    public static CharSequence replaceDiveEmojisForPreview(int currentAccount, CharSequence text) {
+        if (text == null) {
+            return null;
+        }
+        final String source = text.toString();
+        final String prefix = "dive://emoji/";
+        if (!source.contains(prefix)) {
+            return text;
+        }
+        final java.util.ArrayList<int[]> ranges = new java.util.ArrayList<>();
+        final java.util.ArrayList<String> alts = new java.util.ArrayList<>();
+        int from = 0;
+        int idx;
+        while ((idx = source.indexOf(prefix, from)) >= 0) {
+            int end = idx + prefix.length();
+            while (end < source.length() && Character.isDigit(source.charAt(end))) {
+                end++;
+            }
+            if (end == idx + prefix.length()) {
+                from = end;
+                continue;
+            }
+            String alt = null;
+            try {
+                final long docId = Long.parseLong(source.substring(idx + prefix.length(), end));
+                final TLRPC.Document document = AnimatedEmojiDrawable.findDocument(currentAccount, docId);
+                if (document != null) {
+                    for (int i = 0; i < document.attributes.size(); i++) {
+                        final TLRPC.DocumentAttribute attr = document.attributes.get(i);
+                        if (attr instanceof TLRPC.TL_documentAttributeCustomEmoji && !TextUtils.isEmpty(((TLRPC.TL_documentAttributeCustomEmoji) attr).alt)) {
+                            alt = ((TLRPC.TL_documentAttributeCustomEmoji) attr).alt;
+                            break;
+                        }
+                    }
+                }
+            } catch (Exception ignore) {
+            }
+            if (alt != null) {
+                ranges.add(new int[]{idx, end});
+                alts.add(alt);
+            }
+            from = end;
+        }
+        if (ranges.isEmpty()) {
+            return text;
+        }
+        final SpannableStringBuilder sb = new SpannableStringBuilder(text);
+        for (int i = ranges.size() - 1; i >= 0; i--) {
+            final int[] range = ranges.get(i);
+            sb.replace(range[0], range[1], alts.get(i));
+        }
+        return sb;
+    }
+
+    public static CharSequence preparePremiumEmojisForSending(int currentAccount, long dialogId, CharSequence text, ArrayList<TLRPC.MessageEntity> entities) {
+        if (text == null || entities == null || entities.isEmpty()) {
+            return text;
+        }
+        final CharSequence[] message = new CharSequence[]{ text };
+        downgradePremiumEmojisToRegular(currentAccount, message, entities);
+        if (dialogId != 0 && dialogId != UserConfig.getInstance(currentAccount).getClientUserId()) {
+            transformPremiumEmojisToDiveLinks(currentAccount, message, entities);
+        }
+        return message[0];
     }
 
     private static boolean isCoveredByCustomEmoji(ArrayList<TLRPC.MessageEntity> entities, int offset, int end) {
@@ -8343,6 +8566,9 @@ public class MessageObject {
                 if (linksCount >= MediaDataController.MAX_LINKS_COUNT) continue;
                 linksCount++;
                 spannable.setSpan(new FormattedDateSpan(url, run, (TLRPC.TL_messageEntityFormattedDate) run.urlEntity), run.start, run.end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            } else if (run.urlEntity instanceof TLRPC.TL_messageEntityTonAddress) {
+                hasUrls = true;
+                spannable.setSpan(new URLSpanNoUnderline("tonaddress:" + url, run), run.start, run.end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
             } else if (run.urlEntity instanceof TLRPC.TL_messageEntityBankCard) {
                 hasUrls = true;
                 spannable.setSpan(new URLSpanNoUnderline("card:" + url, run), run.start, run.end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
@@ -13111,7 +13337,7 @@ public class MessageObject {
         if (messageOwner.entities == null) return false;
         for (int i = 0; i < messageOwner.entities.size(); ++i) {
             final TLRPC.MessageEntity e = messageOwner.entities.get(i);
-            if (e instanceof TLRPC.TL_messageEntityPhone || e instanceof TLRPC.TL_messageEntityBankCard)
+            if (e instanceof TLRPC.TL_messageEntityPhone || e instanceof TLRPC.TL_messageEntityBankCard || e instanceof TLRPC.TL_messageEntityTonAddress)
                 return true;
         }
         return false;

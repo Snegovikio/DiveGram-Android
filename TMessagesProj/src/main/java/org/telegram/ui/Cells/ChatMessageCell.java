@@ -108,7 +108,7 @@ import org.telegram.messenger.BotForumHelper;
 import org.telegram.messenger.BotInlineKeyboard;
 import org.telegram.messenger.ChatMessageSharedResources;
 import org.telegram.messenger.ChatObject;
-import org.telegram.messenger.CodeHighlighting;
+import org.telegram.utils.code.highlight.CodeHighlighting;
 import org.telegram.messenger.ContactsController;
 import org.telegram.messenger.DialogObject;
 import org.telegram.messenger.DocumentObject;
@@ -16590,7 +16590,6 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
 
             final TL_keyboard.TL_inlineButtonTypeUrl buttonTypeUrl = TLKeyboardHelper.getType(button.button, TL_keyboard.TL_inlineButtonTypeUrl.class);
             boolean drawProgress = drawButtonProgress(button.button);
-
             if (button.buttonCustom != null && currentMessageObject != null) {
                 if (button.buttonCustom.id == BotInlineKeyboard.ButtonCustom.SUGGESTION_ACCEPT) {
                     drawProgress |= MessagesController.getInstance(currentAccount).isSendingSuggestedMessageApproval(currentMessageObject.getDialogId(), currentMessageObject.getId(), true);
@@ -20401,16 +20400,16 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
         canvas.restoreToCount(restore);
     }
 
+    public void drawBackgroundInternal(Canvas canvas, boolean fromParent) {
+        drawBackgroundInternal(canvas, fromParent, false);
+    }
 
     private void drawDeletedTrashIcon(Canvas canvas) {
-        if (currentMessageObject == null || currentBackgroundDrawable == null) {
-            return;
-        }
         if (deletedTrashDrawable == null) {
             deletedTrashDrawable = getResources().getDrawable(R.drawable.msg_delete_filled).mutate();
         }
         int size = dp(16);
-        Rect bounds = currentBackgroundDrawable.getBounds();
+        Rect bounds = currentBackgroundDrawable == null ? new Rect(0, 0, getWidth(), getHeight()) : currentBackgroundDrawable.getBounds();
         int x = bounds.right - dp(8) - size;
         int y = bounds.bottom - dp(4) - size;
         deletedTrashDrawable.setColorFilter(new PorterDuffColorFilter(0xFFFF3B30, PorterDuff.Mode.SRC_IN));
@@ -20418,12 +20417,6 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
         deletedTrashDrawable.setAlpha((int) (255 * getAlpha()));
         deletedTrashDrawable.draw(canvas);
         deletedTrashDrawable.setAlpha(255);
-    }
-
-    @SuppressLint("WrongCall")
-
-    public void drawBackgroundInternal(Canvas canvas, boolean fromParent) {
-        drawBackgroundInternal(canvas, fromParent, false);
     }
 
     @SuppressLint("WrongCall")

@@ -1130,12 +1130,6 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
             optionsIcon.setCasting(CastSync.isActive(), true);
         }
 
-
-        optionsButton.addSubItem(7, R.drawable.msg_delete, getString(R.string.ProfilePlaylistRemoveFromProfile));
-        optionsButton.setSubItemShown(7, false);
-        optionsButton.addSubItem(9, R.drawable.msg_download, "Импортировать текст (.lrc)");
-
-
         optionsButton.setShowedFromBottom(true);
         optionsButton.setDelegate(this::onSubItemClick);
         optionsButton.setContentDescription(LocaleController.getString(R.string.AccDescrMoreOptions));
@@ -1836,8 +1830,12 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
             blurredView.setTag(1);
             bigAlbumConver.setImageBitmap(coverContainer.getImageReceiver().getBitmap());
             blurredAnimationInProgress = true;
-            ScrimOptions.makeGlobalBlurBitmaps((bitmapBg, bitmapOptions) ->
-                blurredView.setBackground(new BitmapDrawable(bitmapBg)));
+            if (SharedConfig.dgOptimization) {
+                blurredView.setBackgroundColor(0xe6000000);
+            } else {
+                ScrimOptions.makeGlobalBlurBitmaps((bitmapBg, bitmapOptions) ->
+                    blurredView.setBackground(new BitmapDrawable(bitmapBg)));
+            }
 
             blurredView.setVisibility(View.VISIBLE);
             blurredView.animate().alpha(1.0f).setDuration(180).setListener(new AnimatorListenerAdapter() {
@@ -2362,6 +2360,14 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
         new LyricsSheet(getContext(), resourcesProvider, messageObject, cover, true).show();
     }
 
+    private void showEqualizer() {
+        try {
+            new EqualizerSheet(getContext(), resourcesProvider).show();
+        } catch (Throwable e) {
+            FileLog.e(e);
+        }
+    }
+
     private void updateTitle(boolean shutdown) {
         MessageObject messageObject = MediaController.getInstance().getPlayingMessageObject();
         if (messageObject == null && shutdown || messageObject != null && !messageObject.isMusic()) {
@@ -2556,6 +2562,19 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
             }
         }
 
+        private void updatePlayerBackground() {
+            if (SharedConfig.dgMd3Master && SharedConfig.dgMd3MusicPlayer) {
+                android.graphics.drawable.GradientDrawable background = new android.graphics.drawable.GradientDrawable();
+                background.setColor(getThemedColor(Theme.key_player_background));
+                float radius = dp(24);
+                background.setCornerRadii(new float[]{radius, radius, radius, radius, 0, 0, 0, 0});
+                playerLayout.setBackground(background);
+                playerLayout.setClipToOutline(true);
+            } else {
+                playerLayout.setBackgroundColor(getThemedColor(Theme.key_player_background));
+            }
+        }
+
         @Override
         public void notifyDataSetChanged() {
             super.notifyDataSetChanged();
@@ -2580,12 +2599,11 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
                         .start();
                 }
             }
+            updatePlayerBackground();
             if (playlist.size() > 1) {
-                playerLayout.setBackgroundColor(getThemedColor(Theme.key_player_background));
                 playerShadow.setVisibility(View.VISIBLE);
                 listView.setPadding(0, listView.getPaddingTop(), 0, dp(179 + 52));
             } else {
-                playerLayout.setBackgroundColor(getThemedColor(Theme.key_player_background));
                 playerShadow.setVisibility(View.VISIBLE);
                 listView.setPadding(0, listView.getPaddingTop(), 0, 0);
             }
@@ -3020,6 +3038,18 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
         o.addIf(messageObject.getId() > 0, R.drawable.msg_message, getString(R.string.ShowInChat), () -> {
             o.dismiss();
             onSubItemClick(4);
+        });
+        o.addIf(SharedConfig.playerLyricsEnabled && messageObject.isMusic(), R.drawable.msg_download, "Импортировать текст (.lrc)", () -> {
+            o.dismiss();
+            onSubItemClick(9);
+        });
+        o.addIf(messageObject.isMusic(), R.drawable.ic_ab_equalizer, "Эквалайзер", () -> {
+            o.dismiss();
+            showEqualizer();
+        });
+        o.addIf(messageObject.isMusic(), R.drawable.msg_saved, "Добавить в плейлист", () -> {
+            o.dismiss();
+            DiveGramPlaylist.add(messageObject);
         });
         if (castAvailable) {
             castItem = o.add();

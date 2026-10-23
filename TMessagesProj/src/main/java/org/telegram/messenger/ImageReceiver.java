@@ -1267,6 +1267,8 @@ public class ImageReceiver implements NotificationCenter.NotificationCenterDeleg
     }
 
     protected void drawDrawable(Canvas canvas, Drawable drawable, int alpha, BitmapShader shader, int orientation, int invert, int isPressed, BackgroundThreadDrawHolder backgroundThreadDrawHolder) {
+        boolean clipped = false;
+        try {
         float imageX, imageY, imageH, imageW;
         RectF drawRegion;
         ColorFilter colorFilter;
@@ -1755,6 +1757,14 @@ public class ImageReceiver implements NotificationCenter.NotificationCenterDeleg
                 }
                 if (svgDrawable != null) {
                     svgDrawable.setParent(null);
+                }
+            }
+        }
+        } finally {
+            if (clipped) {
+                try {
+                    canvas.restore();
+                } catch (Throwable ignore) {
                 }
             }
         }

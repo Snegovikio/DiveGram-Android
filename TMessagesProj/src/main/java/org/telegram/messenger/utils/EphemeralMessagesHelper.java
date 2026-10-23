@@ -18,7 +18,6 @@ import org.telegram.tgnet.tl.TL_bots;
 import org.telegram.tgnet.tl.TL_ephemeral;
 import org.telegram.tgnet.tl.TL_update;
 
-
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -51,7 +50,6 @@ public class EphemeralMessagesHelper extends BaseController {
     }
 
     public static TLRPC.TL_message convertEphemeralToFakeDefault(TL_ephemeral.EphemeralMessage ephemeralMessage) {
-
         TLRPC.TL_message message = new TLRPC.TL_message();
         message.out = ephemeralMessage.out;
         message.id = MessageObject.ephemeralMessageIdPack(ephemeralMessage.id);

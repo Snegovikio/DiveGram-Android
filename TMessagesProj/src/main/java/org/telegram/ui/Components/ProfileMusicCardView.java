@@ -183,7 +183,7 @@ public class ProfileMusicCardView extends View {
             invalidate();
             return;
         }
-        appliedBlurRadius = Math.max(1, org.telegram.messenger.SharedConfig.musicCardBlur);
+        appliedBlurRadius = org.telegram.messenger.SharedConfig.dgOptimization ? 0 : Math.max(1, org.telegram.messenger.SharedConfig.musicCardBlur);
         blurScheduled = false;
         float w = cardRect.width();
         float h = cardRect.height();
@@ -208,10 +208,12 @@ public class ProfileMusicCardView extends View {
         Paint p = new Paint(Paint.FILTER_BITMAP_FLAG);
         new Canvas(scaled).drawBitmap(src, srcRect, dstRect, p);
 
-        final int radius = Math.max(2, Math.min(30, 2 + org.telegram.messenger.SharedConfig.musicCardBlur / 4));
+        final int radius = org.telegram.messenger.SharedConfig.dgOptimization ? 0 : Math.max(2, Math.min(30, 2 + org.telegram.messenger.SharedConfig.musicCardBlur / 4));
 
         Utilities.globalQueue.postRunnable(() -> {
-            Utilities.stackBlurBitmap(scaled, radius);
+            if (radius > 0) {
+                Utilities.stackBlurBitmap(scaled, radius);
+            }
             AndroidUtilities.runOnUIThread(() -> {
                 if (!scaled.isRecycled()) {
                     backgroundBitmap = scaled;
@@ -222,7 +224,7 @@ public class ProfileMusicCardView extends View {
     }
 
     private void checkBlurChanged() {
-        final int blurRadius = Math.max(1, org.telegram.messenger.SharedConfig.musicCardBlur);
+        final int blurRadius = org.telegram.messenger.SharedConfig.dgOptimization ? 0 : Math.max(1, org.telegram.messenger.SharedConfig.musicCardBlur);
         if (blurRadius != appliedBlurRadius && imageReceiver.hasBitmapImage() && !blurScheduled) {
             blurScheduled = true;
             backgroundBitmap = null;

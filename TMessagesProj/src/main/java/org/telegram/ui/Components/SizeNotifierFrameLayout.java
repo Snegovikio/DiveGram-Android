@@ -561,7 +561,6 @@ public class SizeNotifierFrameLayout extends FrameLayout implements Theme.Colora
         if (backgroundView != null && Theme.canStartHolidayAnimation() && LiteMode.isEnabled(LiteMode.FLAG_CHAT_BACKGROUND)) {
             if (snowflakesEffect == null) {
                 snowflakesEffect = new SnowflakesEffect(1);
-                snowflakesEffect.setForcedColor(0xFFFFFFFF);
             }
             snowflakesEffect.onDraw(backgroundView, canvas);
         }

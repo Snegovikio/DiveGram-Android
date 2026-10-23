@@ -7789,50 +7789,12 @@ public class ChatActivityEnterView extends FrameLayout implements
         setEditingMessageObject(null, null, false);
     }
 
-    private static void transformPremiumEmojisToDiveLinks(int currentAccount, CharSequence[] message, ArrayList<TLRPC.MessageEntity> entities) {
-        if (entities == null || entities.isEmpty() || !SharedConfig.localPremium || message[0] == null) {
-            return;
-        }
-        SpannableStringBuilder sb = null;
-        for (int a = 0; a < entities.size(); a++) {
-            final TLRPC.MessageEntity entity = entities.get(a);
-            if (!(entity instanceof TLRPC.TL_messageEntityCustomEmoji)) {
-                continue;
-            }
-            final TLRPC.TL_messageEntityCustomEmoji customEmoji = (TLRPC.TL_messageEntityCustomEmoji) entity;
-            TLRPC.Document document = customEmoji.document;
-            if (document == null) {
-                document = AnimatedEmojiDrawable.findDocument(currentAccount, customEmoji.document_id);
-            }
-            if (document == null || MessageObject.isFreeEmoji(document)) {
-                continue;
-            }
-            final String link = "dive://emoji/" + customEmoji.document_id;
-            final int start = customEmoji.offset;
-            final int emojiLen = customEmoji.length;
-            try {
-                if (sb == null) {
-                    sb = new SpannableStringBuilder(message[0]);
-                }
-                sb.replace(start, start + emojiLen, link);
-                final int delta = link.length() - emojiLen;
-                final TLRPC.TL_messageEntityUrl url = new TLRPC.TL_messageEntityUrl();
-                url.offset = start;
-                url.length = link.length();
-                url.url = link;
-                entities.set(a, url);
-                for (int j = a + 1; j < entities.size(); j++) {
-                    final TLRPC.MessageEntity other = entities.get(j);
-                    if (other.offset >= start + emojiLen) {
-                        other.offset += delta;
-                    }
-                }
-            } catch (Exception ignore) {
-            }
-        }
-        if (sb != null) {
-            message[0] = sb;
-        }
+    public static void downgradePremiumEmojisToRegular(int currentAccount, CharSequence[] message, ArrayList<TLRPC.MessageEntity> entities) {
+        MessageObject.downgradePremiumEmojisToRegular(currentAccount, message, entities);
+    }
+
+    public static void transformPremiumEmojisToDiveLinks(int currentAccount, CharSequence[] message, ArrayList<TLRPC.MessageEntity> entities) {
+        MessageObject.transformPremiumEmojisToDiveLinks(currentAccount, message, entities);
     }
 
     private static int indexOfMentionAll(CharSequence text, int from) {
@@ -8174,9 +8136,7 @@ public class ChatActivityEnterView extends FrameLayout implements
                 }
                 CharSequence[] message = new CharSequence[]{ part };
                 ArrayList<TLRPC.MessageEntity> entities = MediaDataController.getInstance(currentAccount).getEntities(message, supportsNewEntities);
-                if (dialog_id != UserConfig.getInstance(currentAccount).getClientUserId()) {
-                    transformPremiumEmojisToDiveLinks(currentAccount, message, entities);
-                }
+                message[0] = MessageObject.preparePremiumEmojisForSending(currentAccount, dialog_id, message[0], entities);
                 MessageObject.SendAnimationData sendAnimationData = null;
 
                 if (!delegate.hasForwardingMessages()) {
@@ -11871,7 +11831,6 @@ public class ChatActivityEnterView extends FrameLayout implements
             final TL_keyboard.TL_keyboardButton keyboardButton = (TL_keyboard.TL_keyboardButton) button;
             SendMessagesHelper.SendMessageParams params = SendMessagesHelper.SendMessageParams.of(keyboardButton.text, dialog_id, replyMessageObject, getThreadMessage(), null, false, null, null, null, true, 0, 0, null, false);
             params.sendMessageChatArguments = parentFragment != null ? parentFragment.getMessageChatSendParams() : null;
-
             params.effect_id = effectId;
             sendButton.setEffect(effectId = 0);
             SendMessagesHelper.getInstance(currentAccount).sendMessage(params);
@@ -11907,7 +11866,6 @@ public class ChatActivityEnterView extends FrameLayout implements
                     final WebViewRequestProps props = WebViewRequestProps.of(currentAccount, messageObject.messageOwner.dialog_id, botId, button.getText(), button.getUrl(),
                             TLKeyboardHelper.isType(button, TL_keyboard.TL_buttonTypeSimpleWebView.class) ? BotWebViewAttachedSheet.TYPE_SIMPLE_WEB_VIEW_BUTTON : BotWebViewAttachedSheet.TYPE_WEB_VIEW_BUTTON,
                             replyMessageObject != null ? replyMessageObject.messageOwner.id : 0, parentFragment == null ? 0L : parentFragment.getSendMonoForumPeerId(), false, null, false, null, null, 0, false, false);
-
                     if (LaunchActivity.instance != null && LaunchActivity.instance.getBottomSheetTabs() != null && LaunchActivity.instance.getBottomSheetTabs().tryReopenTab(props) != null) {
                         if (botCommandsMenuButton != null) {
                             botCommandsMenuButton.setOpened(false);
@@ -13495,6 +13453,13 @@ public class ChatActivityEnterView extends FrameLayout implements
 
     public boolean isPopupShowing() {
         return emojiViewVisible || botKeyboardViewVisible;
+    }
+
+    public boolean canHidePopupByBackButton() {
+        if (!isPopupShowing()) {
+            return false;
+        }
+        return !(currentPopupContentType == POPUP_CONTENT_BOT_KEYBOARD && botReplyMarkup != null && botReplyMarkup.is_persistent && botButtonsMessageObject != null);
     }
 
     public boolean closeCreationLinkDialog(boolean invoked) {

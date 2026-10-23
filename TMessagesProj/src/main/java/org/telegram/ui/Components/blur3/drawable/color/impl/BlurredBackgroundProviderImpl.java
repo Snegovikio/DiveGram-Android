@@ -116,7 +116,6 @@ public class BlurredBackgroundProviderImpl {
                 Theme.multAlpha(Theme.getColor(Theme.key_actionBarDefaultSubmenuBackground), isDark ? 0.85f : 0.825f))
             .setStrokeColorTop(0x44FFFFFF, 0)
             .setStrokeColorBottom(0x22FFFFFF, 0)
-
             .setShadowColor(0x26000000, 0)
             .setShadowLayer(dpf2(4f), 0, 0)
             .setStrokeWidth(dpf2(2 / 3f), dpf2(2 / 3f))

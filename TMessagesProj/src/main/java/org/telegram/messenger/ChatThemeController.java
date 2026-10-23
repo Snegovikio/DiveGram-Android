@@ -679,20 +679,38 @@ public class ChatThemeController extends BaseController {
             req.peer = MessagesController.getInputPeer(user);
             req.revert = onlyRevert;
             if (!onlyRevert) {
-                TLRPC.UserFull userFull = getMessagesController().getUserFull(dialogId);
-                if (userFull != null) {
-                    userFull.wallpaper = null;
-                    userFull.flags &= ~16777216;
-                    getMessagesStorage().updateUserInfo(userFull, false);
-                }
-                saveChatWallpaper(dialogId, null);
-                if (notify) {
-                    NotificationCenter.getInstance(currentAccount).postNotificationName(NotificationCenter.userInfoDidLoad, dialogId, userFull);
-                }
+                clearWallpaperLocally(dialogId, notify);
             }
         } else {
             TLRPC.Chat chat = MessagesController.getInstance(currentAccount).getChat(-dialogId);
             req.peer = MessagesController.getInputPeer(chat);
+            if (!onlyRevert) {
+                clearWallpaperLocally(dialogId, notify);
+            }
+        }
+
+        getConnectionsManager().sendRequest(req, (response, error) -> {
+
+        });
+    }
+
+    public void clearWallpaperLocally(long dialogId) {
+        clearWallpaperLocally(dialogId, false);
+    }
+
+    private void clearWallpaperLocally(long dialogId, boolean notify) {
+        if (dialogId >= 0) {
+            TLRPC.UserFull userFull = getMessagesController().getUserFull(dialogId);
+            if (userFull != null) {
+                userFull.wallpaper = null;
+                userFull.flags &= ~16777216;
+                getMessagesStorage().updateUserInfo(userFull, false);
+            }
+            saveChatWallpaper(dialogId, null);
+            if (notify) {
+                NotificationCenter.getInstance(currentAccount).postNotificationName(NotificationCenter.userInfoDidLoad, dialogId, userFull);
+            }
+        } else {
             TLRPC.ChatFull chatFull = getMessagesController().getChatFull(-dialogId);
             if (chatFull != null) {
                 chatFull.wallpaper = null;
@@ -704,10 +722,6 @@ public class ChatThemeController extends BaseController {
                 NotificationCenter.getInstance(currentAccount).postNotificationName(NotificationCenter.chatInfoDidLoad, chatFull, 0, false, false);
             }
         }
-
-        getConnectionsManager().sendRequest(req, (response, error) -> {
-
-        });
     }
 
     public int setWallpaperToPeer(long dialogId, String wallpaperLocalPath, Theme.OverrideWallpaperInfo wallpaperInfo, MessageObject serverWallpaper, Runnable callback) {

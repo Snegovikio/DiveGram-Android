@@ -21,6 +21,7 @@ import androidx.dynamicanimation.animation.SpringForce;
 import android.util.Log;
 
 import org.telegram.messenger.AndroidUtilities;
+import org.telegram.messenger.SharedConfig;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Components.AnimatedLinearLayout;
 import org.telegram.ui.Components.CubicBezierInterpolator;
@@ -283,6 +284,8 @@ public class MainTabsLayout extends AnimatedLinearLayout {
     private final Runnable restoreDrawSelector = () -> setSkipDrawSelector(false);
 
     private boolean drawCustomSelector;
+
+
     private void setSkipDrawSelector(boolean skipDrawSelector) {
         drawCustomSelector = skipDrawSelector;
         if (drawCustomSelector) {
@@ -309,6 +312,13 @@ public class MainTabsLayout extends AnimatedLinearLayout {
 
     @Override
     protected void dispatchDraw(@NonNull Canvas canvas) {
+        if (SharedConfig.dgMd3Master && SharedConfig.dgMd3NavBar) {
+            md3NavPaint.setColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+            canvas.drawRoundRect(
+                    AndroidUtilities.dp(10), 0,
+                    getWidth() - AndroidUtilities.dp(10), getHeight(),
+                    AndroidUtilities.dp(24), AndroidUtilities.dp(24), md3NavPaint);
+        }
         if (drawCustomSelector) {
             final float x = animatedLongSelectedViewCenterX + animatedLongSelectedViewOffsetX;
             final float sWidth = getInterpolatedWidthByX(x, this);
@@ -323,8 +333,11 @@ public class MainTabsLayout extends AnimatedLinearLayout {
         super.dispatchDraw(canvas);
     }
 
+    /* */
+
 
     final Paint selectorPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    final Paint md3NavPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     final SpringAnimation scaleX = new SpringAnimation(this, DynamicAnimation.SCALE_X, 1f);
     final SpringAnimation scaleY = new SpringAnimation(this, DynamicAnimation.SCALE_Y, 1f);
 

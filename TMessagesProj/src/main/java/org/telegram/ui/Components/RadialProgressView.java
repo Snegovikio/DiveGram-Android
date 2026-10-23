@@ -20,6 +20,7 @@ import android.view.animation.DecelerateInterpolator;
 import androidx.annotation.Keep;
 
 import org.telegram.messenger.AndroidUtilities;
+import org.telegram.messenger.SharedConfig;
 import org.telegram.ui.ActionBar.Theme;
 
 public class RadialProgressView extends View {
@@ -38,6 +39,7 @@ public class RadialProgressView extends View {
     private DecelerateInterpolator decelerateInterpolator;
     private AccelerateInterpolator accelerateInterpolator;
     private Paint progressPaint;
+    private final Paint trackPaint = new Paint();
     private static final float rotationTime = 2000;
     private static final float risingTime = 500;
     private int size;
@@ -65,6 +67,10 @@ public class RadialProgressView extends View {
         progressColor = getThemedColor(Theme.key_progressCircle);
         decelerateInterpolator = new DecelerateInterpolator();
         accelerateInterpolator = new AccelerateInterpolator();
+        trackPaint.setAntiAlias(true);
+        trackPaint.setStyle(Paint.Style.STROKE);
+        trackPaint.setStrokeCap(Paint.Cap.ROUND);
+
         progressPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         progressPaint.setStyle(Paint.Style.STROKE);
         progressPaint.setStrokeCap(Paint.Cap.ROUND);
@@ -228,12 +234,22 @@ public class RadialProgressView extends View {
         int x = (getMeasuredWidth() - size) / 2;
         int y = (getMeasuredHeight() - size) / 2;
         cicleRect.set(x, y, x + size, y + size);
+        if (SharedConfig.dgMd3Master && SharedConfig.dgMd3Loading) {
+            trackPaint.setStrokeWidth(progressPaint.getStrokeWidth());
+            trackPaint.setColor((progressColor & 0x00FFFFFF) | 0x28000000);
+            canvas.drawArc(cicleRect, 0, 360, false, trackPaint);
+        }
         canvas.drawArc(cicleRect, radOffset, drawingCircleLenght = currentCircleLength, false, progressPaint);
         updateAnimation();
     }
 
     public void draw(Canvas canvas, float cx, float cy) {
         cicleRect.set(cx - size / 2f, cy - size / 2f, cx + size / 2f, cy +  size / 2f);
+        if (SharedConfig.dgMd3Master && SharedConfig.dgMd3Loading) {
+            trackPaint.setStrokeWidth(progressPaint.getStrokeWidth());
+            trackPaint.setColor((progressColor & 0x00FFFFFF) | 0x28000000);
+            canvas.drawArc(cicleRect, 0, 360, false, trackPaint);
+        }
         canvas.drawArc(cicleRect, radOffset, drawingCircleLenght = currentCircleLength, false, progressPaint);
         updateAnimation();
     }

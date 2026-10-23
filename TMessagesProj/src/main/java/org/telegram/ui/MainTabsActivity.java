@@ -80,6 +80,7 @@ import org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceRenderNode
 import org.telegram.ui.Components.chat.ViewPositionWatcher;
 import org.telegram.ui.Components.glass.GlassTabView;
 import org.telegram.ui.Stories.recorder.HintView2;
+import org.telegram.ui.Wallet.WalletActivity;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -879,8 +880,7 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
 
     public void selectTab(int position, boolean animated) {
         for (int a = 0; a < tabs.length; a++) {
-            GlassTabView tab = tabs[a];
-            tab.setSelected(indexToPosition(a) == position, animated);
+            tabs[a].setSelected(indexToPosition(a) == position, animated);
         }
     }
 
@@ -992,7 +992,14 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
 
     @Override
     public void didReceivedNotification(int id, int account, Object... args) {
-        if (id == NotificationCenter.notificationsCountUpdated || id == NotificationCenter.updateInterfaces) {
+        if (id == NotificationCenter.needSetDayNightTheme) {
+            if (classicMenu != null) {
+                classicMenu.applyTheme();
+            }
+        } else if (id == NotificationCenter.notificationsCountUpdated || id == NotificationCenter.updateInterfaces) {
+            if (classicMenu != null) {
+                classicMenu.applyTheme();
+            }
             checkUnreadCount(fragmentView != null && fragmentView.isAttachedToWindow());
         } else if (id == NotificationCenter.appUpdateLoading) {
             if (updateLayout != null) {

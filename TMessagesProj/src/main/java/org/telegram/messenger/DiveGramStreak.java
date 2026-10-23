@@ -156,6 +156,10 @@ public class DiveGramStreak implements NotificationCenter.NotificationCenterDele
         if (!isEnabled() || dialogId <= 0 || !DialogObject.isUserDialog(dialogId)) {
             return null;
         }
+        TLRPC.User user = MessagesController.getInstance(account).getUser(dialogId);
+        if (user == null || UserObject.isBot(user)) {
+            return null;
+        }
         long today = LocalDate.now(STREAK_ZONE).toEpochDay();
         long key = mapKey(account, dialogId);
         synchronized (CACHE) {
@@ -431,6 +435,7 @@ public class DiveGramStreak implements NotificationCenter.NotificationCenterDele
                 return;
             }
             if (CONFIG_URL.isEmpty()) {
+                fetching.set(false);
                 return;
             }
             try {

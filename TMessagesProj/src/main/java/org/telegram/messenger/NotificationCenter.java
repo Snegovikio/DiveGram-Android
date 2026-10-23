@@ -48,7 +48,9 @@ public class NotificationCenter {
     public static final int diveGramMainTabsOpacityChanged = totalEvents++;
     public static final int diveGramOldDesignChanged = totalEvents++;
     public static final int diveGramPlayerBitrateChanged = totalEvents++;
+    public static final int diveGramAvatarShapeChanged = totalEvents++;
     public static final int diveGramAlbumLayoutChanged = totalEvents++;
+    public static final int diveGramLyricsCenterChanged = totalEvents++;
     public static final int closeChats = totalEvents++;
     public static final int closeChatActivity = totalEvents++;
     public static final int closeProfileActivity = totalEvents++;
@@ -296,6 +298,8 @@ public class NotificationCenter {
     public static final int joinedGroup = totalEvents++;
     public static final int loadedAiComposeTones = totalEvents++;
     public static final int updatedChatbot = totalEvents++;
+    public static final int walletUpdate = totalEvents++;
+    public static final int walletTransactionsUpdate = totalEvents++;
 
     //global
     public static final int activeAccountChanged = totalEvents++;

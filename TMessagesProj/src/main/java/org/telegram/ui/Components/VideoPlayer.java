@@ -152,6 +152,16 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
         boolean needUpdate();
     }
 
+    /** Сырые PCM-сэмплы для внешнего анализатора спектра (DiveGram). */
+    public interface AudioSpectrumListener {
+        void onAudioSpectrum(float[] samples, int length, int sampleRate);
+    }
+
+    /** Вызывается, когда создаётся новый аудиоплеер (смена сессии). */
+    public interface AudioSessionListener {
+        void onAudioSessionCreated(int audioSessionId);
+    }
+
     public ExoPlayer player;
     private ExoPlayer audioPlayer;
     private DefaultBandwidthMeter bandwidthMeter;
@@ -175,6 +185,19 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
 
     private VideoPlayerDelegate delegate;
     private AudioVisualizerDelegate audioVisualizerDelegate;
+    private AudioSpectrumListener audioSpectrumListener;
+    private static final ArrayList<AudioSessionListener> audioSessionListeners = new ArrayList<>();
+
+    public static void addAudioSessionListener(AudioSessionListener listener) {
+        if (listener != null && !audioSessionListeners.contains(listener)) {
+            audioSessionListeners.add(listener);
+        }
+    }
+
+    public static void removeAudioSessionListener(AudioSessionListener listener) {
+        audioSessionListeners.remove(listener);
+    }
+
     private int lastReportedPlaybackState;
     private boolean lastReportedPlayWhenReady;
 
@@ -1590,6 +1613,34 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
 
     public void setAudioVisualizerDelegate(AudioVisualizerDelegate audioVisualizerDelegate) {
         this.audioVisualizerDelegate = audioVisualizerDelegate;
+        // MediaController вызывает это сразу после создания плеера — момент,
+        // когда появилась новая аудиосессия (эквалайзер, визуализатор).
+        notifyAudioSessionCreated();
+    }
+
+    public void setAudioSpectrumListener(AudioSpectrumListener audioSpectrumListener) {
+        this.audioSpectrumListener = audioSpectrumListener;
+    }
+
+    private void notifyAudioSessionCreated() {
+        if (audioSessionListeners.isEmpty()) {
+            return;
+        }
+        int sessionId = 0;
+        try {
+            if (player != null) {
+                sessionId = player.getAudioSessionId();
+            }
+        } catch (Throwable ignore) {
+        }
+        ArrayList<AudioSessionListener> copy = new ArrayList<>(audioSessionListeners);
+        for (int i = 0; i < copy.size(); i++) {
+            try {
+                copy.get(i).onAudioSessionCreated(sessionId);
+            } catch (Throwable e) {
+                FileLog.e(e);
+            }
+        }
     }
 
     public int getBufferedPercentage() {
@@ -1814,6 +1865,7 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
                     .setEnableFloatOutput(enableFloatOutput)
                     .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
                     .setAudioProcessors(new AudioProcessor[]{
+                            new DiveGramEqualizerProcessor(),
                             new TeeAudioProcessor(new VisualizerBufferSink())
                     })
                     .build();
@@ -1834,9 +1886,20 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
             byteBuffer.position(0);
         }
 
+        int currentSampleRate = 48000;
+        int currentChannelCount = 1;
+
+        boolean sessionNotified;
+
         @Override
         public void flush(int sampleRateHz, int channelCount, int encoding) {
-
+            currentSampleRate = sampleRateHz > 0 ? sampleRateHz : 48000;
+            currentChannelCount = channelCount > 0 ? channelCount : 1;
+            if (!sessionNotified) {
+                // аудиосессия уже создана — можно вешать эквалайзер/визуализатор
+                sessionNotified = true;
+                AndroidUtilities.runOnUIThread(() -> notifyAudioSessionCreated());
+            }
         }
 
 
@@ -1855,80 +1918,100 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
                 return;
             }
 
-            if (!audioVisualizerDelegate.needUpdate()) {
+            final boolean needDelegate = audioVisualizerDelegate.needUpdate();
+            final AudioSpectrumListener spectrumListener = audioSpectrumListener;
+            final boolean needSpectrum = spectrumListener != null;
+            if (!needDelegate && !needSpectrum) {
                 return;
             }
 
-            int len = buffer.limit();
-            if (len > MAX_BUFFER_SIZE) {
-                audioUpdateHandler.removeCallbacksAndMessages(null);
+            final int len = buffer.limit();
+            if (len <= 0) {
+                return;
+            }
+            try {
+                int offset = 0;
+                while (offset + BUFFER_SIZE <= len) {
+                    final int saveLimit = buffer.limit();
+                    buffer.position(offset);
+                    buffer.limit(offset + BUFFER_SIZE);
+                    byteBuffer.position(0);
+                    byteBuffer.put(buffer);
+                    buffer.position(0);
+                    buffer.limit(saveLimit);
+                    processBlock(needDelegate, needSpectrum, spectrumListener);
+                    offset += BUFFER_SIZE;
+                }
+            } catch (Throwable e) {
+                FileLog.e(e);
+                byteBuffer.clear();
                 audioVisualizerDelegate.onVisualizerUpdate(false, true, null);
-                return;
-//                len = MAX_BUFFER_SIZE;
-//                byte[] bytes = new byte[BUFFER_SIZE];
-//                buffer.get(bytes);
-//                byteBuffer.put(bytes, 0, BUFFER_SIZE);
-            } else {
-                byteBuffer.put(buffer);
             }
-            position += len;
+        }
 
-            if (position >= BUFFER_SIZE) {
-                len = BUFFER_SIZE;
-                byteBuffer.position(0);
-                for (int i = 0; i < len; i++) {
-                    real[i] = (byteBuffer.getShort()) / 32768.0F;
+        private void processBlock(boolean needDelegate, boolean needSpectrum, AudioSpectrumListener spectrumListener) {
+            byteBuffer.position(0);
+            for (int i = 0; i < BUFFER_SIZE; i++) {
+                real[i] = (byteBuffer.getShort()) / 32768.0F;
+            }
+            byteBuffer.rewind();
+
+            fft.forward(real);
+
+            if (needSpectrum) {
+                spectrumListener.onAudioSpectrum(real, BUFFER_SIZE, currentSampleRate * currentChannelCount);
+            }
+            if (!needDelegate) {
+                return;
+            }
+
+            float sum = 0;
+            for (int i = 0; i < BUFFER_SIZE; i++) {
+                float r = fft.getSpectrumReal()[i];
+                float img = fft.getSpectrumImaginary()[i];
+                float peak = (float) Math.sqrt(r * r + img * img) / 30f;
+                if (peak > 1f) {
+                    peak = 1f;
+                } else if (peak < 0) {
+                    peak = 0;
                 }
-                byteBuffer.rewind();
-                position = 0;
+                sum += peak * peak;
+            }
+            final float amplitude = (float) (Math.sqrt(sum / (float) BUFFER_SIZE));
 
-                fft.forward(real);
-                float sum = 0;
-                for (int i = 0; i < len; i++) {
-                    float r = fft.getSpectrumReal()[i];
-                    float img = fft.getSpectrumImaginary()[i];
-                    float peak = (float) Math.sqrt(r * r + img * img) / 30f;
-                    if (peak > 1f) {
-                        peak = 1f;
-                    } else if (peak < 0) {
-                        peak = 0;
-                    }
-                    sum += peak * peak;
+            final float[] partsAmplitude = new float[7];
+            partsAmplitude[6] = amplitude;
+            if (amplitude < 0.4f) {
+                for (int k = 0; k < 7; k++) {
+                    partsAmplitude[k] = 0;
                 }
-                float amplitude = (float) (Math.sqrt(sum / len));
+            } else {
+                final int part = BUFFER_SIZE / 6;
 
-                float[] partsAmplitude = new float[7];
-                partsAmplitude[6] = amplitude;
-                if (amplitude < 0.4f) {
-                    for (int k = 0; k < 7; k++) {
+                for (int k = 0; k < 6; k++) {
+                    final int start = part * k;
+
+                    float r = fft.getSpectrumReal()[start];
+                    float img = fft.getSpectrumImaginary()[start];
+                    partsAmplitude[k] = (float) (Math.sqrt(r * r + img * img) / 30f);
+
+                    if (partsAmplitude[k] > 1f) {
+                        partsAmplitude[k] = 1f;
+                    } else if (partsAmplitude[k] < 0) {
                         partsAmplitude[k] = 0;
                     }
-                } else {
-                    int part = len / 6;
-
-                    for (int k = 0; k < 6; k++) {
-                        int start = part * k;
-                        float r = fft.getSpectrumReal()[start];
-                        float img = fft.getSpectrumImaginary()[start];
-                        partsAmplitude[k] = (float) (Math.sqrt(r * r + img * img) / 30f);
-
-                        if (partsAmplitude[k] > 1f) {
-                            partsAmplitude[k] = 1f;
-                        } else if (partsAmplitude[k] < 0) {
-                            partsAmplitude[k] = 0;
-                        }
-                    }
                 }
-
-                int updateInterval = 64;
-
-                if (System.currentTimeMillis() - lastUpdateTime < updateInterval) {
-                    return;
-                }
-                lastUpdateTime = System.currentTimeMillis();
-
-                audioUpdateHandler.postDelayed(() -> audioVisualizerDelegate.onVisualizerUpdate(true, true, partsAmplitude), 130);
             }
+
+            final int updateInterval = 64;
+
+            if (System.currentTimeMillis() - lastUpdateTime < updateInterval) {
+                return;
+            }
+            lastUpdateTime = System.currentTimeMillis();
+
+            final float[] out = partsAmplitude;
+            audioUpdateHandler.postDelayed(() -> audioVisualizerDelegate.onVisualizerUpdate(true, true, out), 130);
         }
     }
 

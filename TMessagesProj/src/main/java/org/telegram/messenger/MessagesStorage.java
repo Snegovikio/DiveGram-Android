@@ -9777,7 +9777,6 @@ public class MessagesStorage extends BaseController {
                             res.messages.add(convetedEphemeralMessage);
                             messagesCount++;
                         }
-
                     }
                 }
 
@@ -13485,7 +13484,6 @@ public class MessagesStorage extends BaseController {
         if (messages == null || messages.isEmpty()) {
             return;
         }
-
         executeInStorageQueue(() -> putEphemeralMessagesInternal(messages, withTransaction));
     }
 
@@ -13502,7 +13500,6 @@ public class MessagesStorage extends BaseController {
                 if (message.welcome) {
                     continue;
                 }
-
 
                 state.requery();
                 state.bindLong(1, DialogObject.getPeerDialogId(message.peer_id));
@@ -13648,7 +13645,6 @@ public class MessagesStorage extends BaseController {
             while (cursor.next()) {
                 TL_ephemeral.EphemeralMessage message = cursor.tlObjectValue(0, TL_ephemeral.EphemeralMessage::TLdeserialize, false);
                 if (message != null && message.anchor_msg_id == 0) {
-
                     result.add(message);
                 }
             }
@@ -13698,7 +13694,6 @@ public class MessagesStorage extends BaseController {
 
     public ArrayList<TL_ephemeral.EphemeralMessage> getEphemeralMessagesInternal(long dialogId, ArrayList<Integer> ids) {
         ArrayList<TL_ephemeral.EphemeralMessage> result = new ArrayList<>();
-
         if (ids == null || ids.isEmpty()) {
             return result;
         }

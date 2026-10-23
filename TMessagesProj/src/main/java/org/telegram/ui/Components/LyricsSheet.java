@@ -380,6 +380,7 @@ public class LyricsSheet extends BottomSheet implements NotificationCenter.Notif
         NotificationCenter.getInstance(messageObject.currentAccount).addObserver(this, NotificationCenter.messagePlayingDidReset);
         NotificationCenter.getGlobalInstance().addObserver(this, NotificationCenter.onActivityResultReceived);
         NotificationCenter.getGlobalInstance().addObserver(this, NotificationCenter.diveGramAlbumLayoutChanged);
+        NotificationCenter.getGlobalInstance().addObserver(this, NotificationCenter.diveGramLyricsCenterChanged);
 
         LyricsData cached = getCached(key);
         if (forceNoLyricsMode) {
@@ -428,6 +429,13 @@ public class LyricsSheet extends BottomSheet implements NotificationCenter.Notif
             }
             if (albumLayout != null) {
                 albumLayout.requestLayout();
+            }
+            return;
+        }
+        if (id == NotificationCenter.diveGramLyricsCenterChanged) {
+            buildAlbumLayout();
+            if (data != null && !data.isEmpty()) {
+                renderLines();
             }
             return;
         }
@@ -508,7 +516,16 @@ public class LyricsSheet extends BottomSheet implements NotificationCenter.Notif
         if (scrollView == null || scrollView.getHeight() == 0) {
             return;
         }
-        View target = lineViews.get(currentLine);
+        View target = null;
+        for (int i = currentLine; i >= 0; i--) {
+            if (lineViews.get(i) != null) {
+                target = lineViews.get(i);
+                break;
+            }
+        }
+        if (target == null) {
+            return;
+        }
         int top = target.getTop();
         if (target.getParent() instanceof View && target.getParent() != scrollView.getChildAt(0)) {
             top += ((View) target.getParent()).getTop();
@@ -593,6 +610,9 @@ public class LyricsSheet extends BottomSheet implements NotificationCenter.Notif
         TextView newActive = null;
         for (int i = 0; i < lineViews.size(); i++) {
             TextView view = lineViews.get(i);
+            if (view == null) {
+                continue;
+            }
             if (i == currentLine) {
                 view.setTextColor(0xFFFFFFFF);
                 newActive = view;
@@ -713,9 +733,10 @@ public class LyricsSheet extends BottomSheet implements NotificationCenter.Notif
         albumScroll = makeScrollView();
         albumLines = new LinearLayout(context);
         albumLines.setOrientation(LinearLayout.VERTICAL);
-        albumLines.setGravity(Gravity.START);
+        final boolean centerLyrics = SharedConfig.lyricsCenter;
+        albumLines.setGravity(centerLyrics ? Gravity.CENTER_HORIZONTAL : Gravity.START);
         albumLines.setPadding(0, dp(20), 0, dp(160));
-        albumScroll.addView(albumLines, LayoutHelper.createScroll(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.TOP | Gravity.START));
+        albumScroll.addView(albumLines, LayoutHelper.createScroll(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.TOP | (centerLyrics ? Gravity.CENTER_HORIZONTAL : Gravity.START)));
         frame.addView(albumScroll, new FrameLayout.LayoutParams(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
 
         frame.requestLayout();
@@ -766,7 +787,7 @@ public class LyricsSheet extends BottomSheet implements NotificationCenter.Notif
             ct = Math.max(0, Math.min(ct, h - ch));
             coverBlock.layout(cl, ct, cl + cw, ct + ch);
 
-            int lw = Math.max(dp(80), (int) (SharedConfig.albumLyricsWidth * AndroidUtilities.displaySize.x));
+            int lw = Math.max(dp(80), Math.min(w, (int) (SharedConfig.albumLyricsWidth * w)));
             lyrics.measure(
                 MeasureSpec.makeMeasureSpec(lw, MeasureSpec.EXACTLY),
                 MeasureSpec.makeMeasureSpec(h, MeasureSpec.EXACTLY));
@@ -775,7 +796,7 @@ public class LyricsSheet extends BottomSheet implements NotificationCenter.Notif
             int ll = lcx - lw / 2;
             int lt = lcy - h / 2;
             ll = Math.max(0, Math.min(ll, w - lw));
-            lt = Math.max(0, Math.min(lt, h - h));
+            lt = Math.max(0, Math.min(lt, 0));
             lyrics.layout(ll, lt, ll + lw, lt + h);
         }
     }
@@ -847,6 +868,7 @@ public class LyricsSheet extends BottomSheet implements NotificationCenter.Notif
         }
         NotificationCenter.getGlobalInstance().removeObserver(this, NotificationCenter.onActivityResultReceived);
         NotificationCenter.getGlobalInstance().removeObserver(this, NotificationCenter.diveGramAlbumLayoutChanged);
+        NotificationCenter.getGlobalInstance().removeObserver(this, NotificationCenter.diveGramLyricsCenterChanged);
         NotificationCenter.getInstance(messageObject.currentAccount).removeObserver(this, NotificationCenter.messagePlayingProgressDidChanged);
         NotificationCenter.getInstance(messageObject.currentAccount).removeObserver(this, NotificationCenter.messagePlayingDidReset);
         if (orientationLocked) {
@@ -921,10 +943,10 @@ public class LyricsSheet extends BottomSheet implements NotificationCenter.Notif
             for (SyncLine line : data.lines) {
                 lines.add(line.text);
             }
-        } else {
-            for (String raw : data.plainText.split("\n")) {
-                lines.add(raw.trim());
-            }
+            return lines;
+        }
+        for (String raw : data.plainText.split("\n")) {
+            lines.add(raw.trim());
         }
         while (!lines.isEmpty() && lines.get(0).isEmpty()) {
             lines.remove(0);
@@ -951,12 +973,13 @@ public class LyricsSheet extends BottomSheet implements NotificationCenter.Notif
 
             List<String> lines = getRenderedLines();
 
-            boolean center = !isAlbumMode();
+            boolean center = SharedConfig.lyricsCenter || !isAlbumMode();
             int index = 0;
             for (String line : lines) {
                 if (line.isEmpty()) {
                     View spacer = new View(context);
                     target.addView(spacer, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 22));
+                    lineViews.add(null);
                     index++;
                     continue;
                 }

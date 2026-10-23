@@ -8,6 +8,7 @@
 
 package org.telegram.ui;
 
+import android.animation.ValueAnimator;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
@@ -32,6 +33,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ApplicationLoader;
 import org.telegram.messenger.AudioCodecs;
+import org.telegram.messenger.DiveGramLocalChat;
 import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.FileLog;
 import org.telegram.messenger.MessagesController;
@@ -46,6 +48,7 @@ import org.telegram.ui.ActionBar.BaseFragment;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Cells.HeaderCell;
 import org.telegram.ui.Cells.TextCheckCell;
+import org.telegram.ui.Components.CubicBezierInterpolator;
 import org.telegram.ui.Components.LayoutHelper;
 import org.telegram.ui.Components.Paint.ColorPickerBottomSheet;
 import org.telegram.ui.Components.RecyclerListView;
@@ -84,6 +87,9 @@ public class DiveGramFeaturesActivity extends BaseFragment {
     private LinearLayout tabsBar;
     private final TextView[] tabViews = new TextView[SECTION_TITLES.length];
     private final View[] tabIndicators = new View[SECTION_TITLES.length];
+    private final GradientDrawable[] tabPills = new GradientDrawable[SECTION_TITLES.length];
+    private final ValueAnimator[] tabPillAnimators = new ValueAnimator[SECTION_TITLES.length];
+    private int sectionAnimationId;
 
     private void buildRows() {
         rows.clear();
@@ -99,10 +105,12 @@ public class DiveGramFeaturesActivity extends BaseFragment {
                 rows.add(new Row(TYPE_CHECK, "ghost_online", null));
                 rows.add(new Row(TYPE_CHECK, "ghost_read", null));
                 rows.add(new Row(TYPE_CHECK, "ghost_typing", null));
+                rows.add(new Row(TYPE_CHECK, "online_peek", null));
                 rows.add(new Row(TYPE_CHECK, "typing_location", null));
                 rows.add(new Row(TYPE_CHECK, "hide_camera_picker", null));
                 break;
             case 2:
+                rows.add(new Row(TYPE_BUTTON, "design", null));
                 rows.add(new Row(TYPE_BUTTON, "app_name", null));
                 rows.add(new Row(TYPE_CHECK, "chat_plates", null));
                 rows.add(new Row(TYPE_BUTTON, "chat_plate_color", null));
@@ -114,12 +122,15 @@ public class DiveGramFeaturesActivity extends BaseFragment {
                 rows.add(new Row(TYPE_SLIDER, "music_blur", null));
                 rows.add(new Row(TYPE_CHECK, "player_lyrics", null));
                 rows.add(new Row(TYPE_CHECK, "player_lyrics_controls", null));
+                rows.add(new Row(TYPE_CHECK, "lyrics_center", null));
                 rows.add(new Row(TYPE_CHECK, "hide_all_chats", null));
                 rows.add(new Row(TYPE_CHECK, "hide_contacts", null));
                 rows.add(new Row(TYPE_CHECK, "circle_camera", null));
                 rows.add(new Row(TYPE_CHECK, "old_design", null));
                 break;
             case 3:
+                rows.add(new Row(TYPE_CHECK, "playlist_enabled", null));
+                rows.add(new Row(TYPE_BUTTON, "playlist", null));
                 rows.add(new Row(TYPE_BUTTON, "auto_reply", null));
                 rows.add(new Row(TYPE_CHECK, "local_premium", null));
                 rows.add(new Row(TYPE_CHECK, "quick_replies", null));
@@ -135,24 +146,34 @@ public class DiveGramFeaturesActivity extends BaseFragment {
                 rows.add(new Row(TYPE_BUTTON, "audio_codec", null));
                 rows.add(new Row(TYPE_BUTTON, "voice_bitrate", null));
                 rows.add(new Row(TYPE_CHECK, "player_bitrate", null));
+                rows.add(new Row(TYPE_CHECK, "infinite_pins", null));
+                rows.add(new Row(TYPE_CHECK, "optimization", null));
                 break;
         }
     }
 
     private void updateTabs() {
         for (int i = 0; i < SECTION_TITLES.length; i++) {
-            boolean selected = i == currentSection;
-            TextView tab = tabViews[i];
+            final boolean selected = i == currentSection;
+            final TextView tab = tabViews[i];
             if (tab != null) {
                 tab.setTextColor(Theme.getColor(selected ? Theme.key_windowBackgroundWhiteBlueText : Theme.key_windowBackgroundWhiteGrayText3));
                 tab.setTypeface(selected ? AndroidUtilities.bold() : Typeface.DEFAULT);
+                tab.animate().scaleX(selected ? 1.05f : 1f).scaleY(selected ? 1.05f : 1f)
+                        .setDuration(180).setInterpolator(CubicBezierInterpolator.EASE_OUT).start();
             }
-            if (tabIndicators[i] != null) {
-                GradientDrawable drawable = new GradientDrawable();
-                drawable.setShape(GradientDrawable.RECTANGLE);
-                drawable.setCornerRadius(AndroidUtilities.dp(2));
-                drawable.setColor(selected ? Theme.getColor(Theme.key_windowBackgroundWhiteBlueText) : 0x00000000);
-                tabIndicators[i].setBackground(drawable);
+            final GradientDrawable pill = tabPills[i];
+            if (pill != null) {
+                final int target = selected ? 255 : 0;
+                if (tabPillAnimators[i] != null) {
+                    tabPillAnimators[i].cancel();
+                }
+                final ValueAnimator animator = ValueAnimator.ofInt(pill.getAlpha(), target);
+                animator.setDuration(180);
+                animator.setInterpolator(CubicBezierInterpolator.EASE_OUT);
+                animator.addUpdateListener(a -> pill.setAlpha((Integer) a.getAnimatedValue()));
+                animator.start();
+                tabPillAnimators[i] = animator;
             }
         }
     }
@@ -161,15 +182,39 @@ public class DiveGramFeaturesActivity extends BaseFragment {
         if (section == currentSection || section < 0 || section >= SECTION_TITLES.length) {
             return;
         }
+        final int previousSection = currentSection;
         currentSection = section;
-        buildRows();
         updateTabs();
-        if (listAdapter != null) {
-            listAdapter.notifyDataSetChanged();
+        if (listView == null || listAdapter == null) {
+            buildRows();
+            return;
         }
-        if (listView != null) {
-            listView.scrollToPosition(0);
-        }
+        final int animationId = ++sectionAnimationId;
+        final float direction = section > previousSection ? 1f : -1f;
+        listView.animate().cancel();
+        listView.setAlpha(1f);
+        listView.setTranslationX(0f);
+        listView.animate()
+                .alpha(0f)
+                .translationX(-direction * AndroidUtilities.dp(18))
+                .setDuration(110)
+                .setInterpolator(CubicBezierInterpolator.EASE_IN)
+                .withEndAction(() -> {
+                    if (animationId != sectionAnimationId) {
+                        return;
+                    }
+                    buildRows();
+                    listAdapter.notifyDataSetChanged();
+                    listView.scrollToPosition(0);
+                    listView.setTranslationX(direction * AndroidUtilities.dp(18));
+                    listView.animate()
+                            .alpha(1f)
+                            .translationX(0f)
+                            .setDuration(190)
+                            .setInterpolator(CubicBezierInterpolator.EASE_OUT)
+                            .start();
+                })
+                .start();
     }
 
     private int indexOf(String id) {
@@ -223,10 +268,17 @@ public class DiveGramFeaturesActivity extends BaseFragment {
             LinearLayout.LayoutParams indicatorLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, AndroidUtilities.dp(3));
             indicatorLp.topMargin = AndroidUtilities.dp(3);
             tab.addView(indicator, indicatorLp);
+            tab.setPadding(AndroidUtilities.dp(4), AndroidUtilities.dp(3), AndroidUtilities.dp(4), AndroidUtilities.dp(3));
+            GradientDrawable pill = new GradientDrawable();
+            pill.setColor(Theme.multAlpha(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText), 0.13f));
+            pill.setCornerRadius(AndroidUtilities.dp(20));
+            pill.setAlpha(0);
+            tab.setBackground(pill);
             tab.setOnClickListener(v -> selectSection(section));
             tabsBar.addView(tab, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
             tabViews[i] = label;
             tabIndicators[i] = indicator;
+            tabPills[i] = pill;
         }
         rootLayout.addView(tabsBar, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
         updateTabs();
@@ -253,6 +305,21 @@ public class DiveGramFeaturesActivity extends BaseFragment {
                 }
             }
             switch (row.id) {
+                case "playlist_enabled":
+                    SharedConfig.setDgPlaylistEnabled(!SharedConfig.dgPlaylistEnabled);
+                    if (cell != null) cell.setChecked(SharedConfig.dgPlaylistEnabled);
+                    if (SharedConfig.dgPlaylistEnabled) {
+                        DiveGramLocalChat.ensure(getCurrentAccount());
+                    } else {
+                        DiveGramLocalChat.remove(getCurrentAccount());
+                    }
+                    break;
+                case "playlist":
+                    presentFragment(new DiveGramPlaylistActivity());
+                    break;
+                case "design":
+                    presentFragment(new DiveGramDesignActivity());
+                    break;
                 case "auto_reply":
                     presentFragment(new AutoReplyActivity());
                     break;
@@ -358,6 +425,10 @@ public class DiveGramFeaturesActivity extends BaseFragment {
                     SharedConfig.setGhostHideTyping(!SharedConfig.ghostHideTyping);
                     if (cell != null) cell.setChecked(SharedConfig.ghostHideTyping);
                     break;
+                case "online_peek":
+                    SharedConfig.setDgOnlinePeekEnabled(!SharedConfig.dgOnlinePeekEnabled);
+                    if (cell != null) cell.setChecked(SharedConfig.dgOnlinePeekEnabled);
+                    break;
                 case "typing_location":
                     SharedConfig.setShowTypingLocation(!SharedConfig.showTypingLocation);
                     if (cell != null) cell.setChecked(SharedConfig.showTypingLocation);
@@ -384,6 +455,10 @@ public class DiveGramFeaturesActivity extends BaseFragment {
                     }
                     if (cell != null) cell.setChecked(SharedConfig.dialogsWallpaper);
                     NotificationCenter.getInstance(getCurrentAccount()).postNotificationName(NotificationCenter.chatPlatesNeedUpdate);
+                    break;
+                case "infinite_pins":
+                    SharedConfig.setDgInfinitePins(!SharedConfig.dgInfinitePins);
+                    if (cell != null) cell.setChecked(SharedConfig.dgInfinitePins);
                     break;
                 case "quick_replies":
                     SharedConfig.setQuickRepliesEnabled(!SharedConfig.quickRepliesEnabled);
@@ -428,6 +503,15 @@ public class DiveGramFeaturesActivity extends BaseFragment {
                 case "player_lyrics_controls":
                     SharedConfig.setPlayerLyricsHideControls(!SharedConfig.playerLyricsHideControls);
                     if (cell != null) cell.setChecked(SharedConfig.playerLyricsHideControls);
+                    break;
+                case "optimization":
+                    SharedConfig.setDgOptimization(!SharedConfig.dgOptimization);
+                    if (cell != null) cell.setChecked(SharedConfig.dgOptimization);
+                    break;
+                case "lyrics_center":
+                    SharedConfig.setLyricsCenter(!SharedConfig.lyricsCenter);
+                    if (cell != null) cell.setChecked(SharedConfig.lyricsCenter);
+                    NotificationCenter.getInstance(getCurrentAccount()).postNotificationName(NotificationCenter.diveGramLyricsCenterChanged);
                     break;
             }
         });
@@ -834,7 +918,7 @@ public class DiveGramFeaturesActivity extends BaseFragment {
 
             GradientDrawable background = new GradientDrawable();
             background.setColor(Theme.getColor(Theme.key_windowBackgroundWhite));
-            background.setCornerRadius(AndroidUtilities.dp(12));
+            background.setCornerRadius(AndroidUtilities.dp(16));
             setBackground(background);
             RecyclerView.LayoutParams params = new RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
             params.setMargins(AndroidUtilities.dp(12), AndroidUtilities.dp(8), AndroidUtilities.dp(12), AndroidUtilities.dp(8));
@@ -866,11 +950,34 @@ public class DiveGramFeaturesActivity extends BaseFragment {
         }
     }
 
+    private static void applyMd3Card(View view, boolean first, boolean last) {
+        final float r = AndroidUtilities.dp(16);
+        final float[] radii = new float[]{
+                first ? r : 0, first ? r : 0,
+                first ? r : 0, first ? r : 0,
+                last ? r : 0, last ? r : 0,
+                last ? r : 0, last ? r : 0
+        };
+        GradientDrawable background = new GradientDrawable();
+        background.setColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+        background.setCornerRadii(radii);
+        view.setBackground(background);
+        view.setClipToOutline(true);
+        if (view.getLayoutParams() instanceof RecyclerView.LayoutParams) {
+            RecyclerView.LayoutParams params = (RecyclerView.LayoutParams) view.getLayoutParams();
+            params.leftMargin = AndroidUtilities.dp(12);
+            params.rightMargin = AndroidUtilities.dp(12);
+            params.topMargin = first ? AndroidUtilities.dp(12) : 0;
+            params.bottomMargin = last ? AndroidUtilities.dp(12) : 0;
+            view.setLayoutParams(params);
+        }
+    }
+
     private static View createRoundedCard(Context context, View content) {
         FrameLayout wrapper = new FrameLayout(context);
         GradientDrawable background = new GradientDrawable();
         background.setColor(Theme.getColor(Theme.key_windowBackgroundWhite));
-        background.setCornerRadius(AndroidUtilities.dp(12));
+        background.setCornerRadius(AndroidUtilities.dp(16));
         wrapper.setBackground(background);
         RecyclerView.LayoutParams params = new RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         params.setMargins(AndroidUtilities.dp(12), AndroidUtilities.dp(6), AndroidUtilities.dp(12), AndroidUtilities.dp(6));
@@ -915,7 +1022,7 @@ public class DiveGramFeaturesActivity extends BaseFragment {
                     container.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(12), AndroidUtilities.dp(16), AndroidUtilities.dp(12));
                     GradientDrawable bg = new GradientDrawable();
                     bg.setColor(Theme.getColor(Theme.key_windowBackgroundWhite));
-                    bg.setCornerRadius(AndroidUtilities.dp(12));
+                    bg.setCornerRadius(AndroidUtilities.dp(16));
                     container.setBackground(bg);
                     RecyclerView.LayoutParams lp = new RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
                     lp.setMargins(AndroidUtilities.dp(12), AndroidUtilities.dp(6), AndroidUtilities.dp(12), AndroidUtilities.dp(6));
@@ -957,6 +1064,11 @@ public class DiveGramFeaturesActivity extends BaseFragment {
                 return;
             }
             Row row = rows.get(position);
+            final boolean first = position == 0;
+            final boolean last = position == rows.size() - 1;
+            if (row.type != TYPE_HEADER && SharedConfig.dgMd3Master && SharedConfig.dgMd3ListItems) {
+                applyMd3Card(holder.itemView, first, last);
+            }
             switch (row.type) {
                 case TYPE_HEADER: {
                     HeaderCell cell = (HeaderCell) holder.itemView;
@@ -966,6 +1078,14 @@ public class DiveGramFeaturesActivity extends BaseFragment {
                 case TYPE_BUTTON: {
                     TextButtonCell cell = (TextButtonCell) holder.itemView;
                     switch (row.id) {
+                        case "design":
+                            cell.setTitle("Оформление");
+                            cell.setSubtitle("Системные шрифты, Material Design 3 и его переключатели, iOS Design, форма аватарки.");
+                            break;
+                        case "playlist":
+                            cell.setTitle("Плейлист");
+                            cell.setSubtitle("Локальный плейлист — добавляйте треки из меню плеера.");
+                            break;
                         case "auto_reply":
                             cell.setTitle("Автоответчик");
                             cell.setSubtitle("Автоматически отвечает на сообщения в личных чатах, как в Telegram Premium.");
@@ -1161,6 +1281,9 @@ public class DiveGramFeaturesActivity extends BaseFragment {
                         cell = (TextCheckCell) ((ViewGroup) itemView).getChildAt(0);
                     }
                     switch (row.id) {
+                        case "playlist_enabled":
+                            cell.setTextAndCheckAndSubText("Плейлист в списке чатов", "Показывает закреплённый локальный чат «Плейлист» для быстрого доступа к музыке. Выключение убирает его из списка и не затрагивает сами треки.", SharedConfig.dgPlaylistEnabled, false);
+                            break;
                         case "number_protection":
                             cell.setTextAndCheckAndSubText("Защита номера", "Скрывает ваш номер телефона в профиле и настройках (показывает только последние цифры).", SharedConfig.numberProtection, false);
                             break;
@@ -1181,6 +1304,9 @@ public class DiveGramFeaturesActivity extends BaseFragment {
                             break;
                         case "ghost_typing":
                             cell.setTextAndCheckAndSubText("Режим призрака: не отправлять «печатает…»", "Скрывает индикатор «печатает…» при наборе сообщения.", SharedConfig.ghostHideTyping, false);
+                            break;
+                        case "online_peek":
+                            cell.setTextAndCheckAndSubText("Временный подсмотр онлайна", "Если ваш онлайн скрыт, кнопка «Подсмотреть» рядом со статусом собеседника на несколько секунд откроет ваш онлайн для всех, покажет точное время и сразу вернёт настройку обратно.", SharedConfig.dgOnlinePeekEnabled, false);
                             break;
                         case "typing_location":
                             cell.setTextAndCheckAndSubText("Показывать, где печатает собеседник", "Если человек печатает не в личке, а в группе/канале — в его чате будет «печатает в «Название»».", SharedConfig.showTypingLocation, false);
@@ -1221,6 +1347,15 @@ public class DiveGramFeaturesActivity extends BaseFragment {
                             break;
                         case "player_lyrics_controls":
                             cell.setTextAndCheckAndSubText("Скрывать кнопки в лирике", "Делает невидимыми кнопку сворачивания и кнопку переворота (альбомный режим) в окне с текстом песни.", SharedConfig.playerLyricsHideControls, false);
+                            break;
+                        case "infinite_pins":
+                            cell.setTextAndCheckAndSubText("Бесконечные закрепы", "Закрепляйте сколько угодно чатов — лимит Telegram (5/100) проверяться не будет (изменения применяются локально).", SharedConfig.dgInfinitePins, false);
+                            break;
+                        case "optimization":
+                            cell.setTextAndCheckAndSubText("Оптимизация", "Для слабых устройств: отключает блюр, эффекты и автовоспроизведение.", SharedConfig.dgOptimization, false);
+                            break;
+                        case "lyrics_center":
+                            cell.setTextAndCheckAndSubText("Лирика по центру", "Выровнять текст песни по центру окна — в том числе в альбомном режиме, где текст обычно прижимается к левому краю.", SharedConfig.lyricsCenter, false);
                             break;
                         case "hide_all_chats":
                             cell.setTextAndCheckAndSubText("Скрыть папку «Все чаты»", "Убирает вкладку «Все чаты» из списка папок (нужна хотя бы одна своя папка).", SharedConfig.hideAllChatsFolder, false);

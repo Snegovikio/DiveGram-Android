@@ -73,6 +73,7 @@ public class AudioPlayerCell extends FrameLayout implements DownloadController.F
 
     private MessageObject currentMessageObject;
     private boolean needDivider;
+    private boolean playing;
 
     private int currentAccount = UserConfig.selectedAccount;
     private int TAG;
@@ -323,6 +324,7 @@ public class AudioPlayerCell extends FrameLayout implements DownloadController.F
     @Override
     protected void onDraw(Canvas canvas) {
         if (titleLayout != null) {
+            Theme.chat_contextResult_titleTextPaint.setColor(getThemedColor(playing ? Theme.key_windowBackgroundWhiteBlueText : Theme.key_windowBackgroundWhiteBlackText));
             canvas.save();
             canvas.translate(dp(LocaleController.isRTL ? 16 : AndroidUtilities.leftBaseline) + (LocaleController.isRTL && optionsButton.getVisibility() == View.VISIBLE ? dp(32) : 0), titleY);
             titleLayout.draw(canvas);
@@ -379,6 +381,11 @@ public class AudioPlayerCell extends FrameLayout implements DownloadController.F
     }
 
     public void updateButtonState(boolean ifSame, boolean animated) {
+        final boolean nowPlaying = MediaController.getInstance().isPlayingMessage(currentMessageObject);
+        if (playing != nowPlaying) {
+            playing = nowPlaying;
+            invalidate();
+        }
         String fileName = currentMessageObject.getFileName();
         boolean fileExists;
         File cacheFile = null;

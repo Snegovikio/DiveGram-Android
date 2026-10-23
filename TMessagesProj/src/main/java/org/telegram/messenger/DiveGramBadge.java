@@ -577,6 +577,7 @@ public class DiveGramBadge {
                 return;
             }
             if (CONFIG_URL.isEmpty()) {
+                fetching.set(false);
                 if (callback != null) {
                     AndroidUtilities.runOnUIThread(callback);
                 }

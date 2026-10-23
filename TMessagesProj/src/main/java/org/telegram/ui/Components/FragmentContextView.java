@@ -1158,6 +1158,31 @@ public class FragmentContextView extends FrameLayout implements NotificationCent
         updateStyle(style, false);
     }
 
+    private void applyMiniPlayerBackground() {
+        FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) frameLayout.getLayoutParams();
+        if (SharedConfig.dgMd3Master && SharedConfig.dgMd3MiniPlayer) {
+            GradientDrawable background = new GradientDrawable();
+            background.setColor(getThemedColor(Theme.key_inappPlayerBackground));
+            background.setCornerRadius(dp(18));
+            frameLayout.setBackground(background);
+            frameLayout.setTag(null);
+            if (params != null) {
+                params.leftMargin = dp(8);
+                params.rightMargin = dp(8);
+            }
+        } else {
+            frameLayout.setBackgroundColor(0);
+            frameLayout.setTag(Theme.key_inappPlayerBackground);
+            if (params != null) {
+                params.leftMargin = 0;
+                params.rightMargin = 0;
+            }
+        }
+        if (params != null) {
+            frameLayout.setLayoutParams(params);
+        }
+    }
+
     private void updateStyle(@Style int style, boolean force) {
         if (currentStyle == style && !force) {
             return;
@@ -1245,8 +1270,7 @@ public class FragmentContextView extends FrameLayout implements NotificationCent
             titleTextView.setLayoutParams(LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 36, Gravity.LEFT | Gravity.TOP, 35, 0, (isSideMenued ? 64 : 0) + 36, 0));
         } else if (style == STYLE_AUDIO_PLAYER || style == STYLE_LIVE_LOCATION) {
             selector.setBackground(Theme.getSelectorDrawable(false));
-            frameLayout.setBackgroundColor(0);
-            frameLayout.setTag(Theme.key_inappPlayerBackground);
+            applyMiniPlayerBackground();
 
             subtitleTextView.setVisibility(GONE);
             joinButton.setVisibility(GONE);

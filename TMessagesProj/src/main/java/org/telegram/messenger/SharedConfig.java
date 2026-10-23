@@ -13,6 +13,7 @@ import android.app.ActivityManager;
 import android.app.Dialog;
 import android.content.Context;
 import android.content.SharedPreferences;
+import org.telegram.PhoneFormat.PhoneFormat;
 import android.content.pm.PackageInfo;
 import android.graphics.BitmapFactory;
 import android.media.MediaCodecInfo;
@@ -30,10 +31,7 @@ import androidx.annotation.RequiresApi;
 import androidx.core.content.pm.ShortcutManagerCompat;
 
 import org.json.JSONObject;
-
-import org.telegram.PhoneFormat.PhoneFormat;
 import org.telegram.utils.proxy.ProxySettings;
-
 import org.telegram.tgnet.ConnectionsManager;
 import org.telegram.tgnet.InputSerializedData;
 import org.telegram.tgnet.OutputSerializedData;
@@ -302,6 +300,12 @@ public class SharedConfig {
     public static boolean playerLyricsHideControls = false;
     public static boolean playerLyricsTranslate = false;
     public static String playerLyricsTranslateLang = "";
+    public static boolean lyricsCenter = true;
+    public static boolean dgOptimization = false;
+    public static boolean dgPlaylistEnabled = true;
+    public static boolean eqEnabled = true;
+    public static float[] eqBands = new float[]{0, 0, 0, 0, 0};
+    public static short eqPreset = -1;
     public static float albumCoverX = 0.25f;
     public static float albumCoverY = 0.5f;
     public static float albumCoverSize = 0.6f;
@@ -313,6 +317,7 @@ public class SharedConfig {
     public static String weatherCity = "";
     public static String weatherText = "";
     public static long weatherTime = 0;
+    public static boolean dgOnlinePeekEnabled = false;
     public static double weatherLat;
     public static double weatherLon;
     public static boolean badgesEnabled = true;
@@ -367,6 +372,7 @@ public class SharedConfig {
     public static String localProfileColorB64 = "";
     public static final HashSet<String> deletedMessagesIds = new HashSet<>();
     private static int lastLocalId = -210000;
+    public static boolean walletUseFingerprintLock = true;
 
     public static String storageCacheDir;
 
@@ -547,6 +553,7 @@ public class SharedConfig {
                 editor.putInt("autoLockIn", autoLockIn);
                 editor.putInt("lastPauseTime", lastPauseTime);
                 editor.putBoolean("useFingerprint", useFingerprintLock);
+                editor.putBoolean("walletUseFingerprintLock", walletUseFingerprintLock);
                 editor.putBoolean("allowScreenCapture", allowScreenCapture);
                 editor.putString("pushString2", pushString);
                 editor.putInt("pushType", pushType);
@@ -625,6 +632,7 @@ public class SharedConfig {
             autoLockIn = preferences.getInt("autoLockIn", 60 * 60);
             lastPauseTime = preferences.getInt("lastPauseTime", 0);
             useFingerprintLock = preferences.getBoolean("useFingerprint", true);
+            walletUseFingerprintLock = preferences.getBoolean("walletUseFingerprintLock", true);
             allowScreenCapture = preferences.getBoolean("allowScreenCapture", false);
             lastLocalId = preferences.getInt("lastLocalId", -210000);
             pushString = preferences.getString("pushString2", "");
@@ -723,17 +731,24 @@ public class SharedConfig {
             playerLyricsHideControls = preferences.getBoolean("dgPlayerLyricsHideControls", false);
             playerLyricsTranslate = preferences.getBoolean("dgPlayerLyricsTranslate", false);
             playerLyricsTranslateLang = preferences.getString("dgPlayerLyricsTranslateLang", "");
-            albumCoverX = preferences.getFloat("dgAlbumCoverX", 0.04f);
-            albumCoverY = preferences.getFloat("dgAlbumCoverY", 0.10f);
+            lyricsCenter = preferences.getBoolean("dgLyricsCenter", true);
+            dgOptimization = preferences.getBoolean("dgOptimization", false);
+            dgPlaylistEnabled = preferences.getBoolean("dgPlaylistEnabled", true);
+            eqEnabled = preferences.getBoolean("dgEqEnabled", true);
+            eqBands = parseEqBands(preferences.getString("dgEqBands", ""));
+            eqPreset = (short) preferences.getInt("dgEqPreset", -1);
+            albumCoverX = preferences.getFloat("dgAlbumCoverX", 0.25f);
+            albumCoverY = preferences.getFloat("dgAlbumCoverY", 0.5f);
             albumCoverSize = preferences.getFloat("dgAlbumCoverSize", 0.6f);
-            albumLyricsX = preferences.getFloat("dgAlbumLyricsX", 0.52f);
-            albumLyricsY = preferences.getFloat("dgAlbumLyricsY", 0.06f);
+            albumLyricsX = preferences.getFloat("dgAlbumLyricsX", 0.72f);
+            albumLyricsY = preferences.getFloat("dgAlbumLyricsY", 0.5f);
             albumLyricsWidth = preferences.getFloat("dgAlbumLyricsWidth", 0.42f);
             tgwsProxySecret = preferences.getString("tgwsProxySecret", "");
             weatherEnabled = preferences.getBoolean("dgWeatherEnabled", false);
             weatherCity = preferences.getString("dgWeatherCity", "");
             weatherText = preferences.getString("dgWeatherText", "");
             weatherTime = preferences.getLong("dgWeatherTime", 0);
+            dgOnlinePeekEnabled = preferences.getBoolean("dgOnlinePeekEnabled", false);
             weatherLat = Double.longBitsToDouble(preferences.getLong("dgWeatherLat", 0));
             weatherLon = Double.longBitsToDouble(preferences.getLong("dgWeatherLon", 0));
             badgesEnabled = preferences.getBoolean("dgBadgesEnabled", true);
@@ -750,6 +765,27 @@ public class SharedConfig {
             mainTabsOpacity = preferences.getInt("dgMainTabsOpacity", 100);
             dropeRippleStrength = preferences.getInt("dgDropeRippleStrength", 100);
             playerBitrate = preferences.getBoolean("dgPlayerBitrate", false);
+            dgUseSystemFont = preferences.getBoolean("dgUseSystemFont", false);
+            dgAvatarShape = preferences.getInt("dgAvatarShape", 0);
+            dgMd3Master = preferences.getBoolean("dgMd3Master", true);
+            dgMd3Loading = preferences.getBoolean("dgMd3Loading", true);
+            dgMd3Sliders = preferences.getBoolean("dgMd3Sliders", true);
+            dgMd3Switches = preferences.getBoolean("dgMd3Switches", true);
+            dgMd3ChatHeader = preferences.getBoolean("dgMd3ChatHeader", true);
+            dgMd3NavBar = preferences.getBoolean("dgMd3NavBar", true);
+            dgMd3ListItems = preferences.getBoolean("dgMd3ListItems", true);
+            dgMd3MusicPlayer = preferences.getBoolean("dgMd3MusicPlayer", true);
+            dgMd3MiniPlayer = preferences.getBoolean("dgMd3MiniPlayer", true);
+            if (dgMd3Master) {
+                LiteMode.toggleFlag(LiteMode.FLAG_LIQUID_GLASS, false);
+            }
+            dgJellyAvatars = preferences.getBoolean("dgJellyAvatars", false);
+            dgPerChatThemes = preferences.getBoolean("dgPerChatThemes", false);
+            if (dgUseSystemFont) {
+                AndroidUtilities.mediumTypeface = null;
+                AndroidUtilities.clearTypefaceCache();
+            }
+            dgInfinitePins = preferences.getBoolean("dgInfinitePins", false);
             audioCodec = preferences.getInt("dgAudioCodec", AUDIO_CODEC_AUTO);
             voiceRecordBitrate = preferences.getInt("dgVoiceRecordBitrate", 0);
             quickRepliesEnabled = preferences.getBoolean("dgQuickReplies", false);
@@ -1063,6 +1099,7 @@ public class SharedConfig {
         autoLockIn = 60 * 60;
         lastPauseTime = 0;
         useFingerprintLock = true;
+        walletUseFingerprintLock = true;
         isWaitingForPasscodeEnter = false;
         allowScreenCapture = false;
         textSelectionHintShows = 0;
@@ -1214,6 +1251,79 @@ public class SharedConfig {
         MessagesController.getGlobalMainSettings().edit().putBoolean("dgPlayerBitrate", playerBitrate).apply();
     }
 
+    public static boolean dgUseSystemFont;
+    public static int dgAvatarShape;
+    public static boolean dgMd3Master;
+    public static boolean dgMd3Loading;
+    public static boolean dgMd3Sliders;
+    public static boolean dgMd3Switches;
+    public static boolean dgMd3ChatHeader;
+    public static boolean dgMd3NavBar;
+    public static boolean dgMd3ListItems;
+    public static boolean dgMd3MusicPlayer;
+    public static boolean dgMd3MiniPlayer;
+    public static boolean dgJellyAvatars;
+    public static boolean dgPerChatThemes;
+
+    public static void setDgMd3Flag(String key, boolean value) {
+        if (value) {
+            LiteMode.toggleFlag(LiteMode.FLAG_LIQUID_GLASS, false);
+        }
+        switch (key) {
+            case "master": dgMd3Master = value; break;
+            case "loading": dgMd3Loading = value; break;
+            case "sliders": dgMd3Sliders = value; break;
+            case "switches": dgMd3Switches = value; break;
+            case "chat_header": dgMd3ChatHeader = value; break;
+            case "nav_bar": dgMd3NavBar = value; break;
+            case "list_items": dgMd3ListItems = value; break;
+            case "music_player": dgMd3MusicPlayer = value; break;
+            case "mini_player": dgMd3MiniPlayer = value; break;
+        }
+        MessagesController.getGlobalMainSettings().edit()
+                .putBoolean("dgMd3Master", dgMd3Master)
+                .putBoolean("dgMd3Loading", dgMd3Loading)
+                .putBoolean("dgMd3Sliders", dgMd3Sliders)
+                .putBoolean("dgMd3Switches", dgMd3Switches)
+                .putBoolean("dgMd3ChatHeader", dgMd3ChatHeader)
+                .putBoolean("dgMd3NavBar", dgMd3NavBar)
+                .putBoolean("dgMd3ListItems", dgMd3ListItems)
+                .putBoolean("dgMd3MusicPlayer", dgMd3MusicPlayer)
+                .putBoolean("dgMd3MiniPlayer", dgMd3MiniPlayer)
+                .apply();
+    }
+
+    public static void setDgIosFlag(String key, boolean value) {
+        if ("jelly".equals(key)) {
+            dgJellyAvatars = value;
+        } else if ("per_chat".equals(key)) {
+            dgPerChatThemes = value;
+        }
+        MessagesController.getGlobalMainSettings().edit()
+                .putBoolean("dgJellyAvatars", dgJellyAvatars)
+                .putBoolean("dgPerChatThemes", dgPerChatThemes)
+                .apply();
+    }
+
+    public static void setDgAvatarShape(int value) {
+        dgAvatarShape = value;
+        MessagesController.getGlobalMainSettings().edit().putInt("dgAvatarShape", dgAvatarShape).apply();
+    }
+
+    public static void setDgUseSystemFont(boolean value) {
+        dgUseSystemFont = value;
+        MessagesController.getGlobalMainSettings().edit().putBoolean("dgUseSystemFont", dgUseSystemFont).apply();
+        AndroidUtilities.mediumTypeface = null;
+        AndroidUtilities.clearTypefaceCache();
+    }
+
+    public static boolean dgInfinitePins;
+
+    public static void setDgInfinitePins(boolean value) {
+        dgInfinitePins = value;
+        MessagesController.getGlobalMainSettings().edit().putBoolean("dgInfinitePins", dgInfinitePins).apply();
+    }
+
     public static void setAudioCodec(int value) {
         audioCodec = value < AUDIO_CODEC_AUTO || value > AUDIO_CODEC_LDAC ? AUDIO_CODEC_AUTO : value;
         MessagesController.getGlobalMainSettings().edit().putInt("dgAudioCodec", audioCodec).apply();
@@ -1335,6 +1445,14 @@ public class SharedConfig {
         editor.apply();
     }
 
+    public static void setDgOnlinePeekEnabled(boolean value) {
+        dgOnlinePeekEnabled = value;
+        SharedPreferences preferences = MessagesController.getGlobalMainSettings();
+        SharedPreferences.Editor editor = preferences.edit();
+        editor.putBoolean("dgOnlinePeekEnabled", dgOnlinePeekEnabled);
+        editor.apply();
+    }
+
     public static void setWeatherCity(String value) {
         weatherCity = value == null ? "" : value;
         weatherLat = 0;
@@ -1441,6 +1559,65 @@ public class SharedConfig {
         playerLyricsTranslateLang = value == null ? "" : value;
         SharedPreferences preferences = MessagesController.getGlobalMainSettings();
         preferences.edit().putString("dgPlayerLyricsTranslateLang", playerLyricsTranslateLang).apply();
+    }
+
+    private static float[] parseEqBands(String raw) {
+        float[] bands = new float[]{0, 0, 0, 0, 0};
+        if (TextUtils.isEmpty(raw)) {
+            return bands;
+        }
+        try {
+            String[] parts = raw.split(",");
+            for (int i = 0; i < Math.min(bands.length, parts.length); i++) {
+                bands[i] = Math.max(-12f, Math.min(12f, Float.parseFloat(parts[i].trim())));
+            }
+        } catch (Exception e) {
+            FileLog.e(e);
+        }
+        return bands;
+    }
+
+    public static void saveEqSettings() {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < eqBands.length; i++) {
+            if (i > 0) {
+                sb.append(",");
+            }
+            sb.append(eqBands[i]);
+        }
+        MessagesController.getGlobalMainSettings().edit()
+                .putBoolean("dgEqEnabled", eqEnabled)
+                .putString("dgEqBands", sb.toString())
+                .putInt("dgEqPreset", eqPreset)
+                .apply();
+    }
+
+    public static void setLyricsCenter(boolean value) {
+        lyricsCenter = value;
+        SharedPreferences preferences = MessagesController.getGlobalMainSettings();
+        preferences.edit().putBoolean("dgLyricsCenter", lyricsCenter).apply();
+    }
+
+    public static void setDgPlaylistEnabled(boolean value) {
+        dgPlaylistEnabled = value;
+        MessagesController.getGlobalMainSettings().edit().putBoolean("dgPlaylistEnabled", value).apply();
+    }
+
+    /** Режим оптимизации для слабых устройств: отключает тяжёлые эффекты. */
+    public static void setDgOptimization(boolean value) {
+        dgOptimization = value;
+        SharedPreferences preferences = MessagesController.getGlobalMainSettings();
+        preferences.edit().putBoolean("dgOptimization", value).apply();
+        LiteMode.toggleFlag(LiteMode.FLAG_CHAT_BLUR, !value);
+        LiteMode.toggleFlag(LiteMode.FLAG_CHAT_BACKGROUND, !value);
+        LiteMode.toggleFlag(LiteMode.FLAG_CHAT_SCALE, !value);
+        LiteMode.toggleFlag(LiteMode.FLAG_CHAT_THANOS, !value);
+        LiteMode.toggleFlag(LiteMode.FLAG_LIQUID_GLASS, !value);
+        LiteMode.toggleFlag(LiteMode.FLAG_PARTICLES, !value);
+        LiteMode.toggleFlag(LiteMode.FLAG_CHAT_FORUM_TWOCOLUMN, !value);
+        LiteMode.toggleFlag(LiteMode.FLAG_AUTOPLAY_GIFS, !value);
+        LiteMode.toggleFlag(LiteMode.FLAG_CALLS_ANIMATIONS, !value);
+        LiteMode.toggleFlag(LiteMode.FLAG_ANIMATED_EMOJI_REACTIONS, !value);
     }
 
     public static void setAlbumLayout(float coverX, float coverY, float coverSize, float lyricsX, float lyricsY, float lyricsWidth) {
@@ -2823,7 +3000,19 @@ public class SharedConfig {
     }
 
     public static boolean chatBlurEnabled() {
-        return canBlurChat() && LiteMode.isEnabled(LiteMode.FLAG_CHAT_BLUR);
+        if (dgOptimization || !canBlurChat() || !LiteMode.isEnabled(LiteMode.FLAG_CHAT_BLUR)) {
+            return false;
+        }
+        // В светлых (белых) темах аппаратный blur/glass (blur3 RenderNode) рисует
+        // источник, в который попадает сам размываемый слой. На части устройств
+        // это даёт петлю обратной связи: экран «замазывается» и многократно
+        // перерисовывается сам в себе (лечится только пересозданием вьюх).
+        // Поэтому в светлых темах блюр отключаем — рисуется обычная плотная подложка.
+        try {
+            return org.telegram.ui.ActionBar.Theme.isCurrentThemeDark();
+        } catch (Throwable e) {
+            return true;
+        }
     }
 
     public static class BackgroundActivityPrefs {

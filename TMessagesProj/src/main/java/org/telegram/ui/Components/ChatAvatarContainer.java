@@ -265,6 +265,7 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
         avatarImageView.setContentDescription(getString(R.string.AccDescrProfilePicture));
         avatarImageView.setRoundRadius(dp(21));
         addView(avatarImageView);
+        DiveGramJelly.attach(avatarImageView);
         if (avatarClickable) {
             final TLRPC.Chat chat = parentFragment != null ? parentFragment.getCurrentChat() : null;
             if (chat != null && chat.linked_community_id != 0) {
@@ -1264,7 +1265,7 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
                 } else if (user.bot && user.bot_active_users != 0) {
                     newStatus = LocaleController.formatPluralStringComma("BotUsers", user.bot_active_users, ',');
                 } else if (user.bot) {
-                    newStatus = getString(R.string.Bot);
+                    newStatus = UserObject.getBotStatus(user);
                 } else {
                     isOnline[0] = false;
                     newStatus = LocaleController.formatUserStatus(currentAccount, user, isOnline, allowShorterStatus ? statusMadeShorter : null);
